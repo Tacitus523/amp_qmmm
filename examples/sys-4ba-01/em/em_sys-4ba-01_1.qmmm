@@ -1,0 +1,295 @@
+TITLE
+Example simulation with GROMOS + PyTorch
+END
+QMUNIT
+# QMULEN          QMUENE            QMUFOR     QMUCHR
+  0.0529177        2625.5            49641      1.0
+END
+QMZONE
+# NETCH   SPINM
+      1       1
+# QMI:  index of the QM atom
+# QMZ:  atomic number of the QM atom
+# QMLI: 0,1 atom is a link atom
+# Warning: the first 17 characters are ignored!
+# RESIDUE   ATOM     QMI   QMZ   QMLI
+    1 UNL    C         1    6     0   
+    1 UNL    C         2    6     0   
+    1 UNL    C         3    6     0   
+    1 UNL    C         4    6     0   
+    1 UNL    C         5    6     0   
+    1 UNL    C         6    6     0   
+    1 UNL    C         7    6     0   
+    1 UNL    C         8    6     0   
+    1 UNL    C         9    6     0   
+    1 UNL    C         10   6     0   
+    1 UNL    C         11   6     0   
+    1 UNL    C         12   6     0   
+    1 UNL    C         13   6     0   
+    1 UNL    C         14   6     0   
+    1 UNL    C         15   6     0   
+    1 UNL    N         16   7     0   
+    1 UNL    C         17   6     0   
+    1 UNL    C         18   6     0   
+    1 UNL    C         19   6     0   
+    1 UNL    C         20   6     0   
+    1 UNL    C         21   6     0   
+    1 UNL    C         22   6     0   
+    1 UNL    C         23   6     0   
+    1 UNL    C         24   6     0   
+    1 UNL    C         25   6     0   
+    1 UNL    C         26   6     0   
+    1 UNL    C         27   6     0   
+    1 UNL    C         28   6     0   
+    1 UNL    C         29   6     0   
+    1 UNL    C         30   6     0   
+    1 UNL    C         31   6     0   
+    1 UNL    C         32   6     0   
+    1 UNL    C         33   6     0   
+    1 UNL    C         34   6     0   
+    1 UNL    C         35   6     0   
+    1 UNL    C         36   6     0   
+    1 UNL    H         37   1     0   
+    1 UNL    H         38   1     0   
+    1 UNL    H         39   1     0   
+    1 UNL    H         40   1     0   
+    1 UNL    H         41   1     0   
+    1 UNL    H         42   1     0   
+    1 UNL    H         43   1     0   
+    1 UNL    H         44   1     0   
+    1 UNL    H         45   1     0   
+    1 UNL    H         46   1     0   
+    1 UNL    H         47   1     0   
+    1 UNL    H         48   1     0   
+    1 UNL    H         49   1     0   
+    1 UNL    H         50   1     0   
+    1 UNL    H         51   1     0   
+    1 UNL    H         52   1     0   
+    1 UNL    H         53   1     0   
+    1 UNL    H         54   1     0   
+    1 UNL    H         55   1     0   
+    1 UNL    H         56   1     0   
+    1 UNL    H         57   1     0   
+    1 UNL    H         58   1     0   
+    1 UNL    H         59   1     0   
+    1 UNL    H         60   1     0   
+    1 UNL    H         61   1     0   
+    1 UNL    H         62   1     0   
+    1 UNL    H         63   1     0   
+    1 UNL    H         64   1     0   
+    1 UNL    H         65   1     0   
+    1 UNL    H         66   1     0   
+    1 UNL    H         67   1     0   
+    1 UNL    H         68   1     0   
+    1 UNL    H         69   1     0   
+    1 UNL    H         70   1     0   
+    1 UNL    H         71   1     0   
+    1 UNL    H         72   1     0   
+    1 UNL    H         73   1     0   
+    1 UNL    H         74   1     0   
+    1 UNL    H         75   1     0   
+    1 UNL    H         76   1     0   
+    1 UNL    H         77   1     0   
+    1 UNL    H         78   1     0   
+    1 UNL    H         79   1     0   
+    1 UNL    H         80   1     0   
+    1 UNL    H         81   1     0   
+    1 UNL    H         82   1     0   
+    1 UNL    H         83   1     0   
+    1 UNL    H         84   1     0   
+    1 UNL    H         85   1     0   
+    2 UNL    C         86   6     0   
+    2 UNL    C         87   6     0   
+    2 UNL    C         88   6     0   
+    2 UNL    C         89   6     0   
+    2 UNL    C         90   6     0   
+    2 UNL    C         91   6     0   
+    2 UNL    C         92   6     0   
+    2 UNL    C         93   6     0   
+    2 UNL    C         94   6     0   
+    2 UNL    C         95   6     0   
+    2 UNL    C         96   6     0   
+    2 UNL    C         97   6     0   
+    2 UNL    C         98   6     0   
+    2 UNL    C         99   6     0   
+    2 UNL    C         100  6     0   
+    2 UNL    N         101  7     0   
+    2 UNL    C         102  6     0   
+    2 UNL    C         103  6     0   
+    2 UNL    C         104  6     0   
+    2 UNL    C         105  6     0   
+    2 UNL    C         106  6     0   
+    2 UNL    C         107  6     0   
+    2 UNL    C         108  6     0   
+    2 UNL    C         109  6     0   
+    2 UNL    C         110  6     0   
+    2 UNL    C         111  6     0   
+    2 UNL    C         112  6     0   
+    2 UNL    C         113  6     0   
+    2 UNL    C         114  6     0   
+    2 UNL    C         115  6     0   
+    2 UNL    C         116  6     0   
+    2 UNL    C         117  6     0   
+    2 UNL    C         118  6     0   
+    2 UNL    C         119  6     0   
+    2 UNL    C         120  6     0   
+    2 UNL    C         121  6     0   
+    2 UNL    H         122  1     0   
+    2 UNL    H         123  1     0   
+    2 UNL    H         124  1     0   
+    2 UNL    H         125  1     0   
+    2 UNL    H         126  1     0   
+    2 UNL    H         127  1     0   
+    2 UNL    H         128  1     0   
+    2 UNL    H         129  1     0   
+    2 UNL    H         130  1     0   
+    2 UNL    H         131  1     0   
+    2 UNL    H         132  1     0   
+    2 UNL    H         133  1     0   
+    2 UNL    H         134  1     0   
+    2 UNL    H         135  1     0   
+    2 UNL    H         136  1     0   
+    2 UNL    H         137  1     0   
+    2 UNL    H         138  1     0   
+    2 UNL    H         139  1     0   
+    2 UNL    H         140  1     0   
+    2 UNL    H         141  1     0   
+    2 UNL    H         142  1     0   
+    2 UNL    H         143  1     0   
+    2 UNL    H         144  1     0   
+    2 UNL    H         145  1     0   
+    2 UNL    H         146  1     0   
+    2 UNL    H         147  1     0   
+    2 UNL    H         148  1     0   
+    2 UNL    H         149  1     0   
+    2 UNL    H         150  1     0   
+    2 UNL    H         151  1     0   
+    2 UNL    H         152  1     0   
+    2 UNL    H         153  1     0   
+    2 UNL    H         154  1     0   
+    2 UNL    H         155  1     0   
+    2 UNL    H         156  1     0   
+    2 UNL    H         157  1     0   
+    2 UNL    H         158  1     0   
+    2 UNL    H         159  1     0   
+    2 UNL    H         160  1     0   
+    2 UNL    H         161  1     0   
+    2 UNL    H         162  1     0   
+    2 UNL    H         163  1     0   
+    2 UNL    H         164  1     0   
+    2 UNL    H         165  1     0   
+    2 UNL    H         166  1     0   
+    2 UNL    H         167  1     0   
+    2 UNL    H         168  1     0   
+    2 UNL    H         169  1     0   
+    2 UNL    H         170  1     0   
+    2 UNL    H         171  1     0   
+END
+TRAJECTORY
+em_sys-4ba-01_1.coord
+em_sys-4ba-01_1.pc
+em_sys-4ba-01_1.engrad
+em_sys-4ba-01_1.pcgrad
+END
+ELEMENTS
+  1  H
+  2  He
+  3  Li
+  4  Be
+  5  B
+  6  C
+  7  N
+  8  O
+  9  F
+ 10  Ne
+ 11  Na
+ 12  Mg
+ 13  Al
+ 14  Si
+ 15  P
+ 16  S
+ 17  Cl
+ 18  Ar
+ 19  K
+ 20  Ca
+ 21  Sc
+ 22  Ti
+ 23  V
+ 24  Cr
+ 25  Mn
+ 26  Fe
+ 27  Co
+ 28  Ni
+ 29  Cu
+ 30  Zn
+ 31  Ga
+ 32  Ge
+ 33  As
+ 34  Se
+ 35  Br
+ 36  Kr
+ 37  Rb
+ 38  Sr
+ 39  Y
+ 40  Zr
+ 41  Nb
+ 42  Mo
+ 43  Tc
+ 44  Ru
+ 45  Rh
+ 46  Pd
+ 47  Ag
+ 48  Cd
+ 49  In
+ 50  Sn
+ 51  Sb
+ 52  Te
+ 53  I
+ 54  Xe
+ 55  Cs
+ 56  Ba
+ 57  La
+ 58  Ce
+ 59  Pr
+ 60  Nd
+ 61  Pm
+ 62  Sm
+ 63  Eu
+ 64  Gd
+ 65  Tb
+ 66  Dy
+ 67  Ho
+ 68  Er
+ 69  Tm
+ 70  Yb
+ 71  Lu
+ 72  Hf
+ 73  Ta
+ 74  W
+ 75  Re
+ 76  Os
+ 77  Ir
+ 78  Pt
+ 79  Au
+ 80  Hg
+ 81  Tl
+ 82  Pb
+ 83  Bi
+ 84  Po
+ 85  At
+ 86  Rn
+END
+IAC
+# IAC   ATMS   ATMN
+    1     C     6
+    2     C     6
+    3     N     7
+    4     H     1
+    5     H     1
+    6     H     1
+    7    Cl    17
+    8     H     1
+    9     O     8
+   10     H     1
+   11     H     1
+END

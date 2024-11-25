@@ -1,0 +1,7 @@
+TITLE
+Torch Specification File
+END
+MODELS
+# TORNAM                  TORATM    TORFIL                                       TORPRC  TORDEV  TORWRT  TORLE   TORENE   TORFOR   TORCH
+  model_em_sys-4ba-01_1          1          /workspace/amp_qmmm/results/AMPQMMM_model_pyridine_complete_4_minimal_float32_coulombqm_1712240523_130185_float32_2_5.0A_POL9.0A_64x864x8_alpha_0.99_beta_100_gamma_100DFalseDFalse_MTrueQ_N32FILTER_N8KERNELS/model_float32_cuda.pt   1       2       8000     0.1     1.0       10      1
+END

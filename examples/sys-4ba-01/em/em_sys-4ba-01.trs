@@ -1,0 +1,13 @@
+TITLE
+	MD++
+steepest descent energy minimization of sys-4ba in water
+
+	special trajectory
+END
+TIMESTEP
+              0    0.000000000
+END
+DISRESDATA
+1
+      0.2009575      9.8094252      0.0000000
+END

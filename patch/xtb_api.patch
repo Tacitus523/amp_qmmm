@@ -1,0 +1,54 @@
+diff --git a/src/api/calculator.f90 b/src/api/calculator.f90
+index 3a48e1e..ad9ab5f 100644
+--- a/src/api/calculator.f90
++++ b/src/api/calculator.f90
+@@ -333,7 +333,7 @@ end subroutine loadGFN2xTB_api
+ 
+ 
+ !> Add a solvation model to calculator (requires loaded parametrisation)
+-subroutine setSolvent_api(venv, vcalc, charptr, state, temperature, grid) &
++subroutine setSolvent_api(venv, vcalc, charptr, state, temperature, grid, useAlpb) &
+       & bind(C, name="xtb_setSolvent")
+    character(len=*), parameter :: source = 'xtb_api_setSolvent'
+    type(c_ptr), value :: venv
+@@ -344,9 +344,11 @@ subroutine setSolvent_api(venv, vcalc, charptr, state, temperature, grid) &
+    integer(c_int), intent(in), optional :: state
+    real(c_double), intent(in), optional :: temperature
+    integer(c_int), intent(in), optional :: grid
++   logical(c_bool), intent(in), optional :: useAlpb
+    character(len=:), allocatable :: solvent
+    type(TSolvInput) :: input
+    integer :: gsolvstate, nang
++   logical :: alpb
+    real(wp) :: temp
+    logical :: exitRun
+ 
+@@ -383,6 +385,12 @@ subroutine setSolvent_api(venv, vcalc, charptr, state, temperature, grid) &
+          nang = 230
+       end if
+ 
++      if (present(useAlpb)) then
++        alpb = useAlpb
++      else
++        alpb = .false.
++      end if
++
+       call c_f_character(charptr, solvent)
+ 
+       ! PGI 20.5 cannot use default constructor with deferred-length characters:
+@@ -392,8 +400,13 @@ subroutine setSolvent_api(venv, vcalc, charptr, state, temperature, grid) &
+       input%temperature = temp
+       input%state = gsolvstate
+       input%nang = nang
+-      input%alpb = .false.
+-      input%kernel = gbKernel%still
++      input%alpb = alpb
++      if (alpb) then
++        input%kernel = gbKernel%p16
++      else
++        input%kernel = gbKernel%still
++      end if
++
+       call addSolvationModel(env%ptr, calc%ptr, input)
+ 
+       call env%ptr%check(exitRun)

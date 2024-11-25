@@ -1,0 +1,105 @@
+TITLE
+	Automatically generated input file
+	fpultar Thu Jan 18 13:48:47 2024
+END
+SYSTEM
+#      NPM      NSM
+         1        0
+END
+STOCHDYN
+#     NTSD      NTFR      NSFR     NBREF     RCUTF     CFRIC    TEMPSD
+         1         1       100         5       0.3         1       298
+END
+STEP
+#   NSTLIM         T        DT
+     10000         0    0.0005
+END
+BOUNDCOND
+#      NTB    NDFMIN
+         1         0
+END
+PRESSURESCALE
+# COUPLE   SCALE    COMP    TAUP  VIRIAL
+       2       1 0.0004575      0.5        2
+# SEMIANISOTROPIC COUPLINGS(X, Y, Z)
+       1        1        1
+# PRES0(1...3,1...3)
+ 0.06102       0       0
+       0 0.06102       0
+       0       0 0.06102
+END
+FORCE
+#      NTF array
+# bonds    angles   imp.     dihe     charge nonbonded
+  0        1        1        1        1        1
+# NEGR    NRE(1)    NRE(2)    ...      NRE(NEGR)
+     2
+      171    37671
+END
+COVALENTFORM
+#    NTBBH    NTBAH     NTBDN
+         1         1         0
+END
+CONSTRAINT
+# NTC
+    3
+#      NTCP  NTCP0(1)
+          1    0.0001
+#      NTCS  NTCS0(1)
+          1    0.0001
+END
+PAIRLIST
+# algorithm    NSNB   RCUTP   RCUTL    SIZE    TYPE
+          1       1     1.4     1.4     0.7       0
+END
+NONBONDED
+# NLRELE
+         1
+#  APPAK    RCRF   EPSRF    NSLFEXCL
+         0       1.4      8.93         1
+# NSHAPE  ASHAPE  NA2CLC   TOLA2   EPSLS
+         3       1.4         2     1e-10         0
+#    NKX     NKY     NKZ   KCUT
+        10        10        10       100
+#    NGX     NGY     NGZ  NASORD  NFDORD  NALIAS  NSPORD
+        32        32        32         3         2         3         4
+# NQEVAL  FACCUR  NRDGRD  NWRGRD
+    100000       1.6         0         0
+#  NLRLJ  SLVDNS
+         0      33.3
+END
+INITIALISE
+# Default values for NTI values: 0
+#   NTIVEL    NTISHK    NTINHT    NTINHB
+         1         0         0         0
+#   NTISHI    NTIRTC    NTICOM
+         1         0         0
+#   NTISTI
+         1
+#       IG     TEMPI
+    130185       298
+END
+DISTANCERES
+# NTDIR
+#     NTDIR  NTDIRA    CDIR    DIR0  TAUDIR  FORCESCALE VDIR NTWDIR
+          1       0    2000    1000       1       0       0     200
+END
+PRINTOUT
+#     NTPR      NTPP
+      2000         0
+END
+WRITETRAJ
+#    NTWX     NTWSE      NTWV      NTWF      NTWE      NTWG      NTWB
+     2000         0         0         0      2000         0         0
+END
+QMMM
+#   NTQMMM    NTQMSW    RCUTQM   NTWQMMM      QMLJ     QMCON   MMSCALE
+         2        -1       1.4         0         0         0        -1
+END
+TORCH
+#   TORCH
+         1
+END
+AMBER
+       1            1.20
+END

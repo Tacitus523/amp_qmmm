@@ -1,0 +1,17 @@
+#!/bin/bash
+
+
+export OMP_NUM_THREADS=8;
+
+mpirun md_mpi \
+  @input em_sys-4ba-01.imd \
+  @topo sys-4ba.top \
+  @conf em_sys-4ba-01_box.cnf \
+  @fin  em_sys-4ba-01_min.cnf \
+  @trs em_sys-4ba-01.trs \
+  @distrest em_sys-4ba-01.dsr \
+  @torch em_sys-4ba-01_1.torch \
+  @qmmm em_sys-4ba-01_1.qmmm \
+  @trc  em_sys-4ba-01.trc \
+  @tre  em_sys-4ba-01.tre \
+  @trf  em_sys-4ba-01.trf 
