@@ -6,6 +6,10 @@ PyTorch implementation for ML/MM with anisotropic message passing (AMP).
 
 - Preprint on [arXiv](https://arxiv.org/abs/2411.19728)
 
+# Abstract
+
+We present design and implementation of a novel neural network potential (NNP) and its combination with an electrostatic embedding scheme, commonly used within the context of hybrid quantum-mechanical/molecular-mechanical (QM/MM) simulations. Substitution of a computationally expensive QM Hamiltonian by a NNP with the same accuracy largely reduces the computational cost and enables efficient sampling in prospective MD simulations, the main limitation faced by traditional QM/MM set-ups. The model relies on the recently introduced anisotropic message passing (AMP) formalism to compute atomic interactions and encode symmetries found in QM systems. AMP is shown to be highly efficient in terms of both data and computational costs, and can be readily scaled to sample systems involving more than 350 solute and 40'000 solvent atoms for hundreds of nanoseconds using umbrella sampling. The performance and broad applicability of our approach are showcased by calculating the free-energy surface of alanine dipeptide, the preferred ligation states of nickel phosphine complexes, and dissociation free energies of charged pyridine and quinoline dimers. Results with this ML/MM approach show excellent agreement with experimental data. In contrast, free energies calculated with static high-level QM calculations paired with implicit solvent models or QM/MM MD simulations using cheaper semi-empirical methods show up to ten times higher deviation from the experimental ground truth and sometimes even fail to reproduce qualitative trends.
+
 # Data
 
 - Datasets to train AMP have been made available via [ETH Research Collection](https://dx.doi.org/10.3929/ethz-b-000707814)

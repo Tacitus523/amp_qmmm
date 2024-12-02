@@ -138,4 +138,5 @@ RUN git clone --recursive https://github.com/rinikerlab/amp_qmmm --depth 1 && \
 
 # Add user
 RUN useradd -ms /bin/bash amp
+RUN chown -R amp:amp /workspace
 USER amp
