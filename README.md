@@ -4,6 +4,7 @@ PyTorch implementation for ML/MM with anisotropic message passing (AMP).
 
 # Publications
 
+- Full paper on [JACS](https://pubs.acs.org/doi/10.1021/jacs.4c17015) (Open Access)
 - Preprint on [arXiv](https://arxiv.org/abs/2411.19728)
 
 # Abstract
@@ -164,3 +165,7 @@ END
 ```
 
 An example is provided in the `examples` subdirectory.
+
+# Authors
+
+Felix Pultar ([@pultar](https://github.com/pultar)), Moritz Thürlemann ([@MOSNPDEV](https://github.com/MOSNPDEV))
