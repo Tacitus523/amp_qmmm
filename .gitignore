@@ -3,6 +3,7 @@ data
 summaries
 log
 results
+inputs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
