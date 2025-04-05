@@ -17,7 +17,7 @@ class AMPQMMM(nn.Module):
             self.mol_charge = 0.0
         self.__dict__.update(kwargs)
         self.a, self.b, self.c = 6.0, 15.0, 10.0
-        self.register_buffer("element_masses", torch.load(os.path.join("constants", "element_masses.pt")))
+        self.register_buffer("element_masses", torch.load(os.path.join(os.path.dirname(__file__), "constants", "element_masses.pt")))
         
         self.embedding_nodes = tl.Linear(self.node_size, bias=False)
         self.embedding_edges = tl.Linear(self.node_size // 4, bias=False)    
