@@ -418,29 +418,29 @@ def instantiate_model(PARAMETERS: dict, training_data):
     sample_input = (sample_batch["qm_charges"][0], sample_batch["qm_coordinates"], None, sample_batch["mm_charges"], sample_batch["mm_coordinates"])
 
     model = tl.build(model, sample_input)
-    print("Sample batch on CPU:")
-    prediction_cpu, _ = model.forward_with_graph(sample_input)
-    print("Prediction (CPU):")
-    print(prediction_cpu.detach())
+    # print("Sample batch on CPU:")
+    # prediction_cpu, _ = model.forward_with_graph(sample_input)
+    # print("Prediction (CPU):")
+    # print(prediction_cpu.detach())
 
-    if PARAMETERS["single_system"]:
-        print("Prediction + E0 (CPU)")
-        print(prediction_cpu.detach() + PARAMETERS["E0"])
-        print()
+    # if PARAMETERS["single_system"]:
+    #     print("Prediction + E0 (CPU)")
+    #     print(prediction_cpu.detach() + PARAMETERS["E0"])
+    #     print()
 
     # move data back to GPU
     if user_device != cpu_device:
         model.to(user_device)
         model.device = user_device
         # sample input on device
-        sample_input = [input.to(user_device) if isinstance(input, torch.Tensor) else None for input in sample_input]
-        prediction_cuda, _ = model.forward_with_graph(sample_input)
-        print("Prediction (Device):")
-        print(prediction_cuda.detach())
-        if PARAMETERS["single_system"]:
-            print("Prediction + E0 (Device)")
-            print(prediction_cuda.detach() + PARAMETERS["E0"])
-            print()
+        # sample_input = [input.to(user_device) if isinstance(input, torch.Tensor) else None for input in sample_input]
+        # prediction_cuda, _ = model.forward_with_graph(sample_input)
+        # print("Prediction (Device):")
+        # print(prediction_cuda.detach())
+        # if PARAMETERS["single_system"]:
+        #     print("Prediction + E0 (Device)")
+        #     print(prediction_cuda.detach() + PARAMETERS["E0"])
+        #     print()
 
     return model
 
@@ -491,56 +491,63 @@ def evaluate_on_dataset(model, stage, data_loader, PARAMETERS):
     # Set the model to evaluation mode
     model.eval()
 
-    for idx, batch in enumerate(data_loader):
-        if idx % 100 == 0:
-            print(f"Testing stage: {stage}... Batch {idx} / {len(data_loader)}")
+    batch_idx = 0
+    test_size = sum(len(batch) for batch in data_loader)
+    for dict_list_idx, dict_list in enumerate(data_loader):
+        if isinstance(dict_list, dict):
+            dict_list = [dict_list]
 
-        # transfer batch to GPU and prepare input
-        for key, tensor in batch.items():
-            batch[key] = tensor.to(model.device) if isinstance(tensor, torch.Tensor) else None
-            if key == "qm_coordinates" or key == "mm_coordinates":
-                batch[key].requires_grad = True
+        for dict_idx, batch in enumerate(dict_list):
+            if batch_idx % 100 == 0:
+                print(f"Testing stage: {stage}... Batch {batch_idx} / {test_size}")
+            batch_idx += 1
 
-        # check dtype
-        for key in batch:
-            if batch[key] is not None and batch[key].dtype != torch.int64:
-                if PARAMETERS["dtype"] == "float32":
-                    assert batch[key].dtype == torch.float32
-                elif PARAMETERS["dtype"] == "float64":
-                    assert batch[key].dtype == torch.float64
-                else:
-                    print(f"Unsupported dtype: {PARAMETERS['dtype']}")
-                    sys.exit(1)
+            # transfer batch to GPU and prepare input
+            for key, tensor in batch.items():
+                batch[key] = tensor.to(model.device) if isinstance(tensor, torch.Tensor) else None
+                if key == "qm_coordinates" or key == "mm_coordinates":
+                    batch[key].requires_grad = True
 
-        # make prediction
-        input = batch_to_input(batch)
+            # check dtype
+            for key in batch:
+                if batch[key] is not None and batch[key].dtype != torch.int64:
+                    if PARAMETERS["dtype"] == "float32":
+                        assert batch[key].dtype == torch.float32
+                    elif PARAMETERS["dtype"] == "float64":
+                        assert batch[key].dtype == torch.float64
+                    else:
+                        print(f"Unsupported dtype: {PARAMETERS['dtype']}")
+                        sys.exit(1)
 
-        # make prediction
-        prediction, graph = model.forward_with_graph(input)
-        qm_gradients_pred = torch.autograd.grad(prediction, input[INPUT_LAYOUT["qm_coordinates"]], grad_outputs=torch.ones_like(prediction), retain_graph=True)[0]
-        mm_gradients_pred = torch.autograd.grad(prediction, input[INPUT_LAYOUT["mm_coordinates"]], grad_outputs=torch.ones_like(prediction), retain_graph=False)[0]
+            # make prediction
+            input = batch_to_input(batch)
 
-        if not PARAMETERS["single_system"]:
-            prediction = prediction - prediction[0]
+            # make prediction
+            prediction, graph = model.forward_with_graph(input)
+            qm_gradients_pred = torch.autograd.grad(prediction, input[INPUT_LAYOUT["qm_coordinates"]], grad_outputs=torch.ones_like(prediction), retain_graph=True)[0]
+            mm_gradients_pred = torch.autograd.grad(prediction, input[INPUT_LAYOUT["mm_coordinates"]], grad_outputs=torch.ones_like(prediction), retain_graph=False)[0]
 
-        if PARAMETERS['delta_qm']:
-            prediction += batch['delta_qm_energies']
-            qm_gradients_pred += batch['delta_qm_gradients']
-        elif PARAMETERS['delta_qmmm']:
-            prediction += batch['delta_qm_energies']
-            qm_gradients_pred += batch['delta_qm_gradients']
-            mm_gradients_pred += batch['delta_mm_gradients']
-        if PARAMETERS['multi_loss']:
-            pred_dipole = model._molecular_dipole(graph)
-            pred_quadrupole = model._molecular_quadrupole(graph)
+            if not PARAMETERS["single_system"]:
+                prediction = prediction - prediction[0]
 
-        # compute MAE (validation)
-        mae_energy.update(batch['qm_energies'], prediction)
-        mae_gradient_qm.update(batch['qm_gradients'], qm_gradients_pred)
-        mae_gradient_mm.update(batch['mm_gradients'], mm_gradients_pred)
-        if PARAMETERS['multi_loss']:
-            mae_dipoles.update(batch['qm_dipoles'], pred_dipole)
-            mae_quadrupoles.update(batch['qm_quadrupoles'], pred_quadrupole[:, [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]])
+            if PARAMETERS['delta_qm']:
+                prediction += batch['delta_qm_energies']
+                qm_gradients_pred += batch['delta_qm_gradients']
+            elif PARAMETERS['delta_qmmm']:
+                prediction += batch['delta_qm_energies']
+                qm_gradients_pred += batch['delta_qm_gradients']
+                mm_gradients_pred += batch['delta_mm_gradients']
+            if PARAMETERS['multi_loss']:
+                pred_dipole = model._molecular_dipole(graph)
+                pred_quadrupole = model._molecular_quadrupole(graph)
+
+            # compute MAE (validation)
+            mae_energy.update(batch['qm_energies'], prediction)
+            mae_gradient_qm.update(batch['qm_gradients'], qm_gradients_pred)
+            mae_gradient_mm.update(batch['mm_gradients'], mm_gradients_pred)
+            if PARAMETERS['multi_loss']:
+                mae_dipoles.update(batch['qm_dipoles'], pred_dipole)
+                mae_quadrupoles.update(batch['qm_quadrupoles'], pred_quadrupole[:, [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]])
 
     maes = dict()
     maes["mae_energies"] = mae_energy.compute()
@@ -596,3 +603,29 @@ def write_xyz(coords, symbols, file_name="test.xyz"):
                 + "\n"
             )
     return file_name
+
+def def_collate_fn(batch_size):
+    def custom_collate_fn(batch):
+        """
+        Custom collate function to split large dictionaries into smaller batches.
+        Args:
+            batch: A list of dictionaries (from training_data).
+        Returns:
+            A list of smaller dictionaries (batches).
+        """
+        # Assume batch contains one dictionary at a time (since batch_size=1)
+        large_dict = batch[0]  # Extract the single dictionary from the batch
+        smaller_batches = []
+
+
+        num_entries = len(next(iter(large_dict.values())))  # Get the number of entries in the dictionary
+        assertion_error_text = f"Batch size {batch_size} is larger than the number of entries {num_entries} in the dictionary."
+        assert batch_size < num_entries, assertion_error_text
+
+        # Split each key's data into smaller chunks
+        for i in range(0, num_entries, batch_size):
+            small_batch = {key: value[i:i + batch_size] for key, value in large_dict.items()}
+            smaller_batches.append(small_batch)
+
+        return smaller_batches
+    return custom_collate_fn

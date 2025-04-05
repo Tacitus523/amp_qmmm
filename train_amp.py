@@ -12,6 +12,7 @@ from Util import (
     set_model_dtype,
     assert_correct_dtype,
     batch_to_input,
+    def_collate_fn,
 )
 import sys
 import os
@@ -41,80 +42,86 @@ def train_one_epoch(epoch, model, optimizer, loss_fn, training_loader, PARAMETER
     # put model in train mode
     model.train()
 
-    for idx, batch in enumerate(training_loader):
-        if idx % 100 == 0:
-            print(f"Training: Epoch: {epoch}. Batch {idx} / {len(training_loader)}")
+    batch_idx = 0
+    training_size = sum(len(batch) for batch in training_loader)
+    for dict_list_idx, dict_list in enumerate(training_loader):
+        if isinstance(dict_list, dict):
+            dict_list = [dict_list]
+        for dict_idx, batch in enumerate(dict_list):
+            if batch_idx % 100 == 0:
+                print(f"Training: Epoch: {epoch}. Batch {batch_idx} / {training_size}")
+            batch_idx += 1
 
-        # transfer batch to GPU and prepare input
-        for key, tensor in batch.items():
-            batch[key] = tensor.to(model.device) if isinstance(tensor, torch.Tensor) else None
-            if key == "qm_coordinates" or key == "mm_coordinates":
-                batch[key].requires_grad = True
+            # transfer batch to GPU and prepare input
+            for key, tensor in batch.items():
+                batch[key] = tensor.to(model.device) if isinstance(tensor, torch.Tensor) else None
+                if key == "qm_coordinates" or key == "mm_coordinates":
+                    batch[key].requires_grad = True
 
-        # check dtype
-        for key in batch:
-            if batch[key] is not None and batch[key].dtype != torch.int64:
-                if PARAMETERS["dtype"] == "float32":
-                    assert batch[key].dtype == torch.float32
-                elif PARAMETERS["dtype"] == "float64":
-                    assert batch[key].dtype == torch.float64
-                else:
-                    print(f"Unsupported dtype: {PARAMETERS['dtype']}")
+            # check dtype
+            for key in batch:
+                if batch[key] is not None and batch[key].dtype != torch.int64:
+                    if PARAMETERS["dtype"] == "float32":
+                        assert batch[key].dtype == torch.float32
+                    elif PARAMETERS["dtype"] == "float64":
+                        assert batch[key].dtype == torch.float64
+                    else:
+                        print(f"Unsupported dtype: {PARAMETERS['dtype']}")
+                        sys.exit(1)
+
+            
+            # Zero your gradients for every batch!
+            optimizer.zero_grad()
+
+            # make prediction
+            input = batch_to_input(batch)
+            prediction, graph = model.forward_with_graph(input)
+            
+            # gradient prediction
+            qm_gradients_pred = torch.autograd.grad(prediction, input[INPUT_LAYOUT["qm_coordinates"]], grad_outputs=torch.ones_like(prediction), retain_graph=True, create_graph=True)[0]
+            mm_gradients_pred = torch.autograd.grad(prediction, input[INPUT_LAYOUT["mm_coordinates"]], grad_outputs=torch.ones_like(prediction), retain_graph=True, create_graph=True)[0]
+
+            if PARAMETERS['delta_qm']:
+                prediction += batch['delta_qm_energies']
+                qm_gradients_pred += batch['delta_qm_gradients']
+            elif PARAMETERS['delta_qmmm']:
+                prediction += batch['delta_qm_energies']
+                qm_gradients_pred += batch['delta_qm_gradients']
+                mm_gradients_pred += batch['delta_mm_gradients']
+            if PARAMETERS['multi_loss']:
+                pred_dipole = model._molecular_dipole(graph)
+                pred_quadrupole = model._molecular_quadrupole(graph)
+                loss_dipoles = PARAMETERS['gamma'] * dipole_loss(batch['qm_dipoles'], pred_dipole, loss_fn)
+                loss_quadrupoles = PARAMETERS['gamma'] * quadrupole_loss(batch['qm_quadrupoles'], pred_quadrupole, loss_fn)
+
+            # compute loss (training)
+            if not PARAMETERS["single_system"]:
+                prediction = prediction - prediction[0]
+            loss_potential = (1 - PARAMETERS['alpha']) * loss_fn(prediction, batch['qm_energies'])
+            loss_qm_gradient = PARAMETERS['alpha'] * loss_fn(qm_gradients_pred, batch['qm_gradients'])
+            loss_mm_gradient = PARAMETERS['alpha'] * PARAMETERS['beta'] * loss_fn(mm_gradients_pred, batch['mm_gradients'])        
+            loss = loss_potential + loss_mm_gradient + loss_qm_gradient
+            if PARAMETERS['multi_loss']:
+                loss = loss + loss_dipoles + loss_quadrupoles
+
+            # backprop and gradient descent
+            loss.backward()
+
+            for param in model.parameters():
+                if torch.isnan(param.grad).any():
+                    print("nan gradient found")
                     sys.exit(1)
-
-        
-        # Zero your gradients for every batch!
-        optimizer.zero_grad()
-
-        # make prediction
-        input = batch_to_input(batch)
-        prediction, graph = model.forward_with_graph(input)
-        
-        # gradient prediction
-        qm_gradients_pred = torch.autograd.grad(prediction, input[INPUT_LAYOUT["qm_coordinates"]], grad_outputs=torch.ones_like(prediction), retain_graph=True, create_graph=True)[0]
-        mm_gradients_pred = torch.autograd.grad(prediction, input[INPUT_LAYOUT["mm_coordinates"]], grad_outputs=torch.ones_like(prediction), retain_graph=True, create_graph=True)[0]
-
-        if PARAMETERS['delta_qm']:
-            prediction += batch['delta_qm_energies']
-            qm_gradients_pred += batch['delta_qm_gradients']
-        elif PARAMETERS['delta_qmmm']:
-            prediction += batch['delta_qm_energies']
-            qm_gradients_pred += batch['delta_qm_gradients']
-            mm_gradients_pred += batch['delta_mm_gradients']
-        if PARAMETERS['multi_loss']:
-            pred_dipole = model._molecular_dipole(graph)
-            pred_quadrupole = model._molecular_quadrupole(graph)
-            loss_dipoles = PARAMETERS['gamma'] * dipole_loss(batch['qm_dipoles'], pred_dipole, loss_fn)
-            loss_quadrupoles = PARAMETERS['gamma'] * quadrupole_loss(batch['qm_quadrupoles'], pred_quadrupole, loss_fn)
-
-        # compute loss (training)
-        if not PARAMETERS["single_system"]:
-            prediction = prediction - prediction[0]
-        loss_potential = (1 - PARAMETERS['alpha']) * loss_fn(prediction, batch['qm_energies'])
-        loss_qm_gradient = PARAMETERS['alpha'] * loss_fn(qm_gradients_pred, batch['qm_gradients'])
-        loss_mm_gradient = PARAMETERS['alpha'] * PARAMETERS['beta'] * loss_fn(mm_gradients_pred, batch['mm_gradients'])        
-        loss = loss_potential + loss_mm_gradient + loss_qm_gradient
-        if PARAMETERS['multi_loss']:
-            loss = loss + loss_dipoles + loss_quadrupoles
-
-        # backprop and gradient descent
-        loss.backward()
-
-        for param in model.parameters():
-            if torch.isnan(param.grad).any():
-                print("nan gradient found")
-                sys.exit(1)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=PARAMETERS['max_grad_norm'])
-        
-        optimizer.step()
-        
-        # compute MAE (training)
-        training_mae_energy.update(batch['qm_energies'], prediction)
-        training_mae_gradient_qm.update(batch['qm_gradients'], qm_gradients_pred)
-        training_mae_gradient_mm.update(batch['mm_gradients'], mm_gradients_pred)
-        if PARAMETERS['multi_loss']:
-            training_mae_dipoles.update(batch['qm_dipoles'], pred_dipole)
-            training_mae_quadrupoles.update(batch['qm_quadrupoles'], pred_quadrupole[:, [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]])
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=PARAMETERS['max_grad_norm'])
+            
+            optimizer.step()
+            
+            # compute MAE (training)
+            training_mae_energy.update(batch['qm_energies'], prediction)
+            training_mae_gradient_qm.update(batch['qm_gradients'], qm_gradients_pred)
+            training_mae_gradient_mm.update(batch['mm_gradients'], mm_gradients_pred)
+            if PARAMETERS['multi_loss']:
+                training_mae_dipoles.update(batch['qm_dipoles'], pred_dipole)
+                training_mae_quadrupoles.update(batch['qm_quadrupoles'], pred_quadrupole[:, [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]])
 
 
     last_lr = optimizer.param_groups[0]['lr']
@@ -314,8 +321,9 @@ if __name__ == "__main__":
         training_loader = DataLoader(training_data, batch_size=PARAMETERS["batch_size"], shuffle=True, drop_last=True)
         validation_loader = DataLoader(validation_data, batch_size=PARAMETERS["batch_size"], shuffle=False, drop_last=True)
     else:
-        training_loader = DataLoader(training_data, batch_size=1, shuffle=True, drop_last=True, collate_fn=lambda x: x[0])
-        validation_loader = DataLoader(validation_data, batch_size=1, shuffle=False, drop_last=True, collate_fn=lambda x: x[0])
+        collate_function = def_collate_fn(PARAMETERS["batch_size"])
+        training_loader = DataLoader(training_data, batch_size=1, shuffle=True, drop_last=True, collate_fn=collate_function)
+        validation_loader = DataLoader(validation_data, batch_size=1, shuffle=False, drop_last=True, collate_fn=collate_function)
 
     print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
     PARAMETERS["experiment_name"] = f"{PARAMETERS['model_name']}_{PARAMETERS['n_steps']}_{PARAMETERS['cutoff']}A_POL{PARAMETERS['cutoff_lr']}A_{PARAMETERS['num_epochs']}x{len(training_loader)}x{PARAMETERS['batch_size']}_alpha_{PARAMETERS['alpha']}_beta_{PARAMETERS['beta']}_gamma_{PARAMETERS['gamma']}D{PARAMETERS['delta_qm']}D{PARAMETERS['delta_qmmm']}_M{PARAMETERS['multi_loss']}Q_N{PARAMETERS['n_channels']}FILTER_N{PARAMETERS['n_kernels']}KERNELS"
