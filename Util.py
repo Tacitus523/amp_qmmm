@@ -53,21 +53,27 @@ class SingleSystemOrcaXtbDataset(Dataset):
                 allow_pickle=True,
             )
             assert len(self._qm_coordinates) == last_idx
+
             self._mm_coordinates = np.load(
                 f"{data_path}/{system_name}/orca_pc_coordinates.npy",
                 allow_pickle=True,
             )
-            assert len(self._mm_gradients) == last_idx
+            assert len(self._mm_coordinates) == last_idx
+
             self._qm_charges = np.load(
                 f"{data_path}/{system_name}/orca_species.npy",
                 allow_pickle=True,
             )
             assert len(self._qm_charges) == last_idx
+
             self._mm_charges = np.load(
                 f"{data_path}/{system_name}/orca_pc_charges.npy",
                 allow_pickle=True,
             )
-        except:
+            assert len(self._mm_charges) == last_idx
+            
+        except Exception as e:
+            print("Error reading Orca results:", e)
             print("Falling back to xtb results...")
             self._qm_coordinates = np.load(
                 f"{data_path}/{system_name}/xtb_coordinates.npy",
@@ -75,22 +81,26 @@ class SingleSystemOrcaXtbDataset(Dataset):
             )
             self._qm_coordinates = self._qm_coordinates * BOHR_TO_ANGSTROM
             assert len(self._qm_coordinates) == last_idx
+
             self._mm_coordinates = np.load(
                 f"{data_path}/{system_name}/xtb_pc_coordinates.npy",
                 allow_pickle=True,
             )
             self._mm_coordinates = self._mm_coordinates * BOHR_TO_ANGSTROM
             assert len(self._mm_coordinates) == last_idx
+
             self._qm_charges = np.load(
                 f"{data_path}/{system_name}/xtb_species.npy",
                 allow_pickle=True,
             )
             assert len(self._qm_charges) == last_idx
+
             self._mm_charges = np.load(
                 f"{data_path}/{system_name}/xtb_pc_charges.npy",
                 allow_pickle=True,
             )
             assert len(self._mm_charges) == last_idx
+
         # move away empty (padded) MM particles
         self._mm_coordinates[np.where(np.abs(self._mm_coordinates).sum(-1) == 0)] += 1e5
         self._qm_energies = np.load(
