@@ -8,7 +8,9 @@ from Util import (
     evaluate_on_dataset,
     set_model_dtype,
     assert_correct_dtype,
+    def_collate_fn,
 )
+import argparse
 import sys
 import os
 from torch.utils.data import DataLoader
@@ -35,13 +37,13 @@ def log_stats(stage_name, maes, evaluation_time):
         print(f"{stage_name}: MAE Quadrupoles [eA2]: {maes['mae_quadrupoles']:.5f}")
 
 if __name__ == "__main__":
-    usage = f"{sys.argv[0]} results_folder"
-    if len(sys.argv) != 2:
-        print(usage)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Evaluate a model on various datasets.")
+    parser.add_argument("-c", "--results_folder", type=str, help="Path to the folder containing the results and parameters.")
+    parser.add_argument("-g", "--gpu", type=int, default=0, help="Use GPU for evaluation.")
+    args = parser.parse_args()
 
     # load parameters
-    PARAMETERS =  np.load(os.path.join(sys.argv[1], "parameters.npy"), allow_pickle=True).item()
+    PARAMETERS = np.load(os.path.join(args.results_folder, "parameters.npy"), allow_pickle=True).item()
     stages = list()
     datasets = dict()
 
@@ -186,7 +188,8 @@ if __name__ == "__main__":
         if PARAMETERS["single_system"]:
             dataloader = DataLoader(datasets[stage], batch_size=PARAMETERS["batch_size"], shuffle=False, drop_last=True)
         else:
-            dataloader = DataLoader(datasets[stage], batch_size=1, shuffle=False, drop_last=True, collate_fn=lambda x: x[0])
+            collate_function= def_collate_fn(PARAMETERS["batch_size"])
+            dataloader = DataLoader(datasets[stage], batch_size=1, shuffle=False, drop_last=True, collate_fn=collate_function)
         maes, evaluation_time = evaluate_on_dataset(model, stage, dataloader, PARAMETERS)
         log_stats(stage, maes, evaluation_time)
         print("--------------------------------------------------------------------------------")
