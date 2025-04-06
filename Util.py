@@ -418,29 +418,29 @@ def instantiate_model(PARAMETERS: dict, training_data):
     sample_input = (sample_batch["qm_charges"][0], sample_batch["qm_coordinates"], None, sample_batch["mm_charges"], sample_batch["mm_coordinates"])
 
     model = tl.build(model, sample_input)
-    # print("Sample batch on CPU:")
-    # prediction_cpu, _ = model.forward_with_graph(sample_input)
-    # print("Prediction (CPU):")
-    # print(prediction_cpu.detach())
+    print("Sample batch on CPU:")
+    prediction_cpu, _ = model.forward_with_graph(sample_input)
+    print("Prediction (CPU):")
+    print(prediction_cpu.detach())
 
-    # if PARAMETERS["single_system"]:
-    #     print("Prediction + E0 (CPU)")
-    #     print(prediction_cpu.detach() + PARAMETERS["E0"])
-    #     print()
+    if PARAMETERS["single_system"]:
+        print("Prediction + E0 (CPU)")
+        print(prediction_cpu.detach() + PARAMETERS["E0"])
+        print()
 
     # move data back to GPU
     if user_device != cpu_device:
         model.to(user_device)
         model.device = user_device
         # sample input on device
-        # sample_input = [input.to(user_device) if isinstance(input, torch.Tensor) else None for input in sample_input]
-        # prediction_cuda, _ = model.forward_with_graph(sample_input)
-        # print("Prediction (Device):")
-        # print(prediction_cuda.detach())
-        # if PARAMETERS["single_system"]:
-        #     print("Prediction + E0 (Device)")
-        #     print(prediction_cuda.detach() + PARAMETERS["E0"])
-        #     print()
+        sample_input = [input.to(user_device) if isinstance(input, torch.Tensor) else None for input in sample_input]
+        prediction_cuda, _ = model.forward_with_graph(sample_input)
+        print("Prediction (Device):")
+        print(prediction_cuda.detach())
+        if PARAMETERS["single_system"]:
+            print("Prediction + E0 (Device)")
+            print(prediction_cuda.detach() + PARAMETERS["E0"])
+            print()
 
     return model
 
