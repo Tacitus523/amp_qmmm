@@ -14,6 +14,7 @@ from Util import (
     batch_to_input,
     def_collate_fn,
 )
+import argparse
 import sys
 import os
 import copy
@@ -228,14 +229,14 @@ def save_parameters(PARAMETERS):
 
 
 if __name__ == "__main__":
-    usage = f"{sys.argv[0]} parameters.yaml"
-    if len(sys.argv) != 2:
-        print(usage)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Train AMP-QMMM model.")
+    parser.add_argument("-c", "--config", dest="parameters_file", type=str, help="Path to the parameters YAML file.")
+    parser.add_argument("-g", "--gpu", type=str, default="0", help="GPU to use for training.")
+    args = parser.parse_args()
 
     # load parameters
-    PARAMETERS = load_parameters_file(sys.argv[1])
-    PARAMETERS["parameters_file"] = sys.argv[1]
+    PARAMETERS = load_parameters_file(args.parameters_file)
+    PARAMETERS["parameters_file"] = args.parameters_file
     PARAMETERS["model_name"] = f'AMPQMMM_model_{PARAMETERS["system_name"]}_{PARAMETERS["experiment_name"]}_coulombqm_{PARAMETERS["time"]}_{PARAMETERS["random_seed"]}_{PARAMETERS["dtype"]}'
 
     # set seed
