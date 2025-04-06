@@ -613,7 +613,7 @@ def def_collate_fn(batch_size):
         Returns:
             A list of smaller dictionaries (batches).
         """
-        # Assume batch contains one dictionary at a time (since batch_size=1)
+        # Assume batch contains one dictionary at a time (since batch_size=1 in DataLoader)
         large_dict = batch[0]  # Extract the single dictionary from the batch
         smaller_batches = []
 
