@@ -492,7 +492,7 @@ def evaluate_on_dataset(model, stage, data_loader, PARAMETERS):
     model.eval()
 
     batch_idx = 0
-    test_size = sum(len(batch) for batch in data_loader)
+    test_size = sum(len(dict_list) if not isinstance(dict_list, dict) else 1 for dict_list in data_loader)
     for dict_list_idx, dict_list in enumerate(data_loader):
         if isinstance(dict_list, dict):
             dict_list = [dict_list]
