@@ -43,7 +43,7 @@ def train_one_epoch(epoch, model, optimizer, loss_fn, training_loader, PARAMETER
     model.train()
 
     batch_idx = 0
-    training_size = sum(len(batch) for batch in training_loader)
+    training_size = sum(len(dict_list) if not isinstance(dict_list, dict) else 1 for dict_list in training_loader)
     for dict_list_idx, dict_list in enumerate(training_loader):
         if isinstance(dict_list, dict):
             dict_list = [dict_list]
