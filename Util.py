@@ -1,3 +1,5 @@
+import ase
+from ase.io import write
 import torch
 import numpy as np
 import torchlayers as tl
@@ -9,6 +11,7 @@ import os
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 from torchmetrics import MeanAbsoluteError as MAE
+from typing import Dict
 
 import torchlayers as tl
 from AMPQMMM import AMPQMMM as AMPQMMM_Precision
@@ -488,7 +491,7 @@ def log_general_stats(model_name, experiment_name, best_epoch, epochs_trained, e
     print(f"Last validation MAE: {last_vmae}")
 
 
-def evaluate_on_dataset(model, stage, data_loader, PARAMETERS):
+def evaluate_on_dataset(model, stage, data_loader, PARAMETERS, write_results: None|str = None):
     evaluation_start = time.time()
 
     mae_energy = MAE().to(model.device)
@@ -497,6 +500,11 @@ def evaluate_on_dataset(model, stage, data_loader, PARAMETERS):
     if PARAMETERS['multi_loss']:
         mae_dipoles = MAE().to(model.device)
         mae_quadrupoles = MAE().to(model.device)
+
+    # Remove existing files
+    if write_results is not None:
+        if os.path.exists(write_results):
+            os.remove(write_results)
 
     # Set the model to evaluation mode
     model.eval()
@@ -559,6 +567,27 @@ def evaluate_on_dataset(model, stage, data_loader, PARAMETERS):
                 mae_dipoles.update(batch['qm_dipoles'], pred_dipole)
                 mae_quadrupoles.update(batch['qm_quadrupoles'], pred_quadrupole[:, [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]])
 
+            if write_results is not None:
+                molecule_properties = {
+                    "qm_energies_ref": batch["qm_energies"].cpu().detach().numpy(),
+                    "qm_energies_pred": prediction.cpu().detach().numpy(),
+                    "dipole_ref": batch["qm_dipoles"].cpu().detach().numpy(),
+                    "dipole_pred": pred_dipole.cpu().detach().numpy(),
+                    "quadrupole_ref": batch["qm_quadrupoles"].cpu().detach().numpy(),
+                    "quadrupole_pred": pred_quadrupole.cpu().detach().numpy()[:, [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]],
+                }
+
+                atom_properties = {
+                    "qm_gradients_ref": batch["qm_gradients"].cpu().detach().numpy(),
+                    "qm_gradients_pred": qm_gradients_pred.cpu().detach().numpy(),
+                }
+
+                write_extxyz(
+                    batch["qm_charges"].cpu().detach().numpy(),
+                    batch["qm_coordinates"].cpu().detach().numpy(),
+                    molecule_properties, atom_properties, write_results
+                )
+
     maes = dict()
     maes["mae_energies"] = mae_energy.compute()
     maes["mae_qm_gradients"] = mae_gradient_qm.compute()
@@ -613,6 +642,45 @@ def write_xyz(coords, symbols, file_name="test.xyz"):
                 + "\n"
             )
     return file_name
+
+def write_extxyz(
+        atomic_numbers: torch.Tensor, 
+        coordinates: torch.Tensor, 
+        molecule_properties: Dict[str, torch.Tensor] = None, 
+        atom_properties: Dict[str, torch.Tensor] = None, 
+        filename: str ="geoms_amp_qmmm.extxyz"
+    ):
+    """
+    Write an .extxyz file with atomic numbers, coordinates, and additional properties.
+    Args:
+        atomic_numbers: Atomic numbers of the atoms.
+        coordinates: Coordinates of the atoms.
+        filename: Name of the output file.
+        properties: Additional properties to write to the file.
+    """
+
+    for property_name, property in atom_properties.items():
+        three_dim_property = np.reshape(property, (property.shape[0], property.shape[1], -1))
+        atom_properties[property_name] = three_dim_property
+
+    molecules = []
+    for mol_idx in range(len(atomic_numbers)):
+        molecule: ase.Atoms = ase.Atoms(
+            numbers=atomic_numbers[mol_idx],
+            positions=coordinates[mol_idx],
+        )
+
+        for info_property_name, info_property in molecule_properties.items():
+            molecule.info[info_property_name] = info_property[mol_idx]
+        
+        for property_name, property in atom_properties.items():
+            molecule.set_array(property_name, property[mol_idx])
+        
+        molecules.append(molecule)
+    
+    # Append the molecules to the .extxyz file
+    write(filename, molecules, format="extxyz", append=True)
+    return
 
 def def_collate_fn(batch_size):
     def custom_collate_fn(batch):

@@ -190,7 +190,11 @@ if __name__ == "__main__":
         else:
             collate_function= def_collate_fn(PARAMETERS["batch_size"])
             dataloader = DataLoader(datasets[stage], batch_size=1, shuffle=False, drop_last=True, collate_fn=collate_function)
-        maes, evaluation_time = evaluate_on_dataset(model, stage, dataloader, PARAMETERS)
+        
+        if stage != "test":
+            maes, evaluation_time = evaluate_on_dataset(model, stage, dataloader, PARAMETERS, write_results=None)
+        else:
+            maes, evaluation_time = evaluate_on_dataset(model, stage, dataloader, PARAMETERS, write_results=os.path.join(args.results_folder, "amp_qmmm_geoms.extxyz"))
         log_stats(stage, maes, evaluation_time)
         print("--------------------------------------------------------------------------------")
 
