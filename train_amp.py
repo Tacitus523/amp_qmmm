@@ -328,8 +328,8 @@ if __name__ == "__main__":
 
     print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
     PARAMETERS["experiment_name"] = f"{PARAMETERS['model_name']}_{PARAMETERS['n_steps']}_{PARAMETERS['cutoff']}A_POL{PARAMETERS['cutoff_lr']}A_{PARAMETERS['num_epochs']}x{len(training_loader)}x{PARAMETERS['batch_size']}_alpha_{PARAMETERS['alpha']}_beta_{PARAMETERS['beta']}_gamma_{PARAMETERS['gamma']}D{PARAMETERS['delta_qm']}D{PARAMETERS['delta_qmmm']}_M{PARAMETERS['multi_loss']}Q_N{PARAMETERS['n_channels']}FILTER_N{PARAMETERS['n_kernels']}KERNELS"
-    PARAMETERS["summary_path"] = os.path.join("summaries", PARAMETERS["experiment_name"])
-    PARAMETERS["save_path"] = os.path.join("results", PARAMETERS["experiment_name"])
+    PARAMETERS["summary_path"] = os.path.abspath(os.path.join("summaries", PARAMETERS["experiment_name"]))
+    PARAMETERS["save_path"] = os.path.abspath(os.path.join("results", PARAMETERS["experiment_name"]))
     log_general_stats(PARAMETERS["model_name"], PARAMETERS["experiment_name"], PARAMETERS["mol_charge"], PARAMETERS["random_seed"])
     print(f"Number of parameters that require gradient: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
     if PARAMETERS["device_name"] == "cuda":

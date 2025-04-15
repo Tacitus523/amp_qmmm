@@ -1,11 +1,19 @@
-#!/lustre/home/ka/ka_ipc/ka_he8978/miniconda3/envs/mace_env/bin/python3.12
+#!/usr/bin/env python
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --mem=32G
+#SBATCH --time=1:00:00
+#SBATCH --job-name=plot
+#SBATCH --output=plot.out
+#SBATCH --error=plot.out
+
 import argparse
 from ase.io import read
 import numpy as np
 import matplotlib.pyplot as plt
 
 # Default geometry file
-AMP_GEOMS = "results/amp_qmmm_geoms.extxyz"
+AMP_GEOMS = "amp_qmmm_geoms.extxyz"
 
 # Keywords for extracting data
 REF_ENERGY_KEY = "qm_energies_ref"
@@ -19,7 +27,8 @@ PRED_QUADRUPOLE_KEY = "quadrupole_pred"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Plotting script for AMP")
-    parser.add_argument("-g", "--geoms", type=str, default=AMP_GEOMS, help="Path to the geometry file")
+    parser.add_argument("-g", "--geoms", type=str, default=AMP_GEOMS, \
+                        help="Path to a geometry file containing both reference and predicted data. Run test_amp.py to generate this file.")
     return parser.parse_args()
 
 def get_ref(mols, energy_keyword=None, forces_keyword=None, dipole_keyword=None, quadrupole_keyword=None):
@@ -64,6 +73,10 @@ def main():
     amp_mols = read(args.geoms, format="extxyz", index=":")
     ref_data = get_ref(amp_mols, REF_ENERGY_KEY, REF_FORCES_KEY, REF_DIPOLE_KEY, REF_QUADRUPOLE_KEY)
     AMP_data = get_ref(amp_mols, PRED_ENERGY_KEY, PRED_FORCES_KEY, PRED_DIPOLE_KEY, PRED_QUADRUPOLE_KEY)
+
+    for name, data in zip(["Ref", "AMP"], [ref_data, AMP_data]):
+        for key, value in data.items():
+            print(f"{name} {key}: {value.shape} Min Max: {np.min(value): .1f} {np.max(value): .1f}")
 
     plot_data(ref_data, AMP_data, "energy", "Ref energy", "AMP energy", "AMPenergy.png")
     plot_data(ref_data, AMP_data, "forces", "Ref forces", "AMP forces", "AMPforces.png")
