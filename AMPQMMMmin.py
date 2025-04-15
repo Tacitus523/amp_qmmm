@@ -46,7 +46,7 @@ class AMPQMMM(nn.Module):
     def _run(self, inputs: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]):
         qm_types, qm_coordinates, _, mm_charges, mm_coordinates = inputs
         graph = build_graph(qm_coordinates, mm_coordinates, qm_types, mm_charges, mol_charge=self.mol_charge,
-                            cutoff=self.cutoff, cutoff_lr=self.cutoff_lr, 
+                            cutoff=self.cutoff, cutoff_lr=self.cutoff_lr, cutoff_esp=self.cutoff_esp,
                             n_kernels=self.n_kernels, n_kernels_qmmm=self.n_kernels_qmmm,
                             device=self.device)
         return self._process_graph(graph)

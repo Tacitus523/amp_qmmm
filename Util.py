@@ -20,7 +20,7 @@ from AMPQMMMmin import AMPQMMM as AMPQMMM_Minimal
 H_TO_KJ = 627.509474 * 4.184
 BOHR_TO_ANGSTROM = 0.529177210903
 ENERGY_CONVERSION = H_TO_KJ
-MULTIPOLE_CONVERSION = BOHR_TO_ANGSTROM
+MULTIPOLE_CONVERSION = 1
 FORCE_CONVERSION = H_TO_KJ / BOHR_TO_ANGSTROM
 
 
@@ -298,10 +298,10 @@ class MultiSystemOrcaXtbDataset(Dataset):
                 assert len(item) == current_num_frames
             # assert all entries in the current batch are from the same molecule
             assert np.all(np.all(batch_directory["qm_charges"] == batch_directory["qm_charges"][0, :], axis=1))
-            batch_directory["delta_qm_energies"] = batch_directory["delta_qm_energies"] - batch_directory["delta_qm_energies"][0]
-            batch_directory["delta_qm_energies"] = batch_directory["delta_qm_energies"].reshape([-1, 1]) * ENERGY_CONVERSION
-            batch_directory["delta_qm_gradients"] = batch_directory["delta_qm_gradients"] * FORCE_CONVERSION
-            batch_directory["delta_mm_gradients"] = batch_directory["delta_mm_gradients"] * FORCE_CONVERSION
+            # batch_directory["delta_qm_energies"] = batch_directory["delta_qm_energies"] - batch_directory["delta_qm_energies"][0]
+            # batch_directory["delta_qm_energies"] = batch_directory["delta_qm_energies"].reshape([-1, 1]) * ENERGY_CONVERSION
+            # batch_directory["delta_qm_gradients"] = batch_directory["delta_qm_gradients"] * FORCE_CONVERSION
+            # batch_directory["delta_mm_gradients"] = batch_directory["delta_mm_gradients"] * FORCE_CONVERSION
             batch_directory["qm_charges"] = batch_directory["qm_charges"].astype(np.int64)
             # move away empty (padded) MM particles
             batch_directory["mm_coordinates"][np.where(np.abs(batch_directory["mm_coordinates"]).sum(-1) == 0)] += 1e5
@@ -319,11 +319,11 @@ class MultiSystemOrcaXtbDataset(Dataset):
                 batch_directory["delta_qm_energies"] = batch_directory["qm_energies"] - batch_directory["delta_qm_energies"]
                 batch_directory["delta_qm_gradients"] = batch_directory["qm_gradients"] - batch_directory["delta_qm_gradients"]
                 batch_directory["delta_mm_gradients"] = batch_directory["mm_gradients"]
-            else:
-                # drop superfluous entries
-                del batch_directory["delta_qm_energies"]
-                del batch_directory["delta_qm_gradients"]
-                del batch_directory["delta_mm_gradients"]
+            # else:
+            #     # drop superfluous entries
+            #     del batch_directory["delta_qm_energies"]
+            #     del batch_directory["delta_qm_gradients"]
+            #     del batch_directory["delta_mm_gradients"]
             if not self._multi_loss:
                 # drop superfluous entries
                 del batch_directory["qm_dipoles"]
