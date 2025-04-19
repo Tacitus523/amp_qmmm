@@ -29,6 +29,7 @@ def save_model(model, device_name, PARAMETERS):
     model_float32.device = device
     model_float32.dtype = torch.float32
     model_scripted_float32 = torch.jit.optimize_for_inference(torch.jit.script(model_float32.eval()))
+    torch.save(model_float32.eval(), os.path.join(PARAMETERS["save_path"], f"model_float32_{device_name}.model"))
     model_scripted_float32.save(os.path.join(PARAMETERS["save_path"], f"model_float32_{device_name}.pt"))
     print(model_float32.device, model_float32.dtype)
 
@@ -37,6 +38,7 @@ def save_model(model, device_name, PARAMETERS):
     model_float64.device = device
     model_float64.dtype = torch.float64
     model_scripted_float64 = torch.jit.optimize_for_inference(torch.jit.script(model_float64.eval()))
+    torch.save(model_float64.eval(), os.path.join(PARAMETERS["save_path"], f"model_float64_{device_name}.model"))
     model_scripted_float64.save(os.path.join(PARAMETERS["save_path"], f"model_float64_{device_name}.pt"))
     print(model_float64.device, model_float64.dtype)
 
