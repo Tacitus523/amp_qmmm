@@ -55,6 +55,7 @@ class AMPQMMM(nn.Module):
         qm_types, qm_coordinates, _, mm_charges, mm_coordinates = inputs
         graph = build_graph(qm_coordinates, mm_coordinates, qm_types, mm_charges, mol_charge=self.mol_charge,
                             cutoff=self.cutoff, cutoff_lr=self.cutoff_lr, cutoff_esp=self.cutoff_esp,
+                            n_kernels=self.n_kernels, n_kernels_qmmm=self.n_kernels_qmmm,
                             device=self.device)
         return self._process_graph(graph)
         
@@ -85,7 +86,7 @@ class AMPQMMM(nn.Module):
         coulomb_term = scatter(coulomb_term, graph['qm_indices_esp'][0], dim=0)
         coulomb_terms_qm = self._coulomb_qm(graph)
         coulomb_term = (coulomb_term + coulomb_terms_qm) * 1389.35457644382 
-
+        graph['coulomb_term'] = coulomb_term
         return coulomb_term, graph
     
     def _embed(self, graph: Dict[str, torch.Tensor]):
@@ -154,7 +155,7 @@ class AMPQMMM(nn.Module):
         graph['quads'] = graph['quads'] + A(graph['quads_qmmm'], 1)
         return graph        
     
-    def _molecular_dipole(self, graph: Dict[str, torch.Tensor]):    
+    def _molecular_dipole(self, graph: Dict[str, torch.Tensor]):
         qm_coords = graph["qm_coordinates"] - compute_com(graph["qm_coordinates"], self.element_masses[graph["Z"]])
         contribution_dipoles = graph['dipos'].reshape(qm_coords.shape)
         contribution_monopoles = graph['monos'].reshape(qm_coords.shape[:2]).unsqueeze(-1) * qm_coords
@@ -162,9 +163,9 @@ class AMPQMMM(nn.Module):
     
     def _molecular_quadrupole(self, graph: Dict[str, torch.Tensor]):
         qm_coords = graph["qm_coordinates"] - compute_com(graph["qm_coordinates"], self.element_masses[graph["Z"]])
-        contribution_quadrupoles = graph['quads'].reshape((*qm_coords.shape, 3))
+        contribution_quadrupoles = graph['quads'].reshape((qm_coords.shape[0], qm_coords.shape[1], 3, 3))
         monos = A(A(graph['monos'].reshape(qm_coords.shape[:2])))
-        Rx2 = build_Rx2(qm_coords - qm_coords.mean(dim=1, keepdims=True))
+        Rx2 = build_Rx2(qm_coords - torch.mean(qm_coords, dim=1, keepdim=True))
         contribution_monopoles = (monos * Rx2)
         return (contribution_quadrupoles + contribution_monopoles).sum(dim=1)
     

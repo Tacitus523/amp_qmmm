@@ -20,7 +20,7 @@ class AMPQMMM(nn.Module):
         self.register_buffer("element_masses", torch.load(os.path.join(os.path.dirname(__file__), "constants", "element_masses.pt")))
         
         self.embedding_nodes = tl.Linear(self.node_size, bias=False)
-        self.embedding_edges = tl.Linear(self.node_size // 4, bias=False)    
+        self.embedding_edges = tl.Linear(self.node_size // 4, bias=False)
         
         self.in_update_layers = nn.ModuleList([ff_module(self.node_size, 2, activation=self.activation) for _ in range(self.n_steps)])
         self.in_message_layers = nn.ModuleList([ff_module(self.node_size, 2, activation=self.activation) for _ in range(self.n_steps)])
@@ -105,7 +105,7 @@ class AMPQMMM(nn.Module):
         features_ij = torch.cat((graph['nodes'][graph['receivers']], graph['nodes'][graph['senders']]), dim=-1)
         QM_coefficients = self.QM_coefficients(torch.cat((features_ij, graph['edge_features']), dim=-1))
         graph = build_poles(graph, QM_coefficients)  
-        graph['monos'] = graph['monos'][:, 0] 
+        graph['monos'] = graph['monos'][:, 0]
         graph['dipos'] = (graph['dipos'][:, 0] + graph['dipos_qmmm']) * 1e-2
         graph['quads'] = (graph['quads'][:, 0] + graph['quads_qmmm']) * 1e-2
         return graph
@@ -137,7 +137,7 @@ class AMPQMMM(nn.Module):
         graph['quads'] = graph['quads'] + A(graph['quads_qmmm'], 1)
         return graph        
     
-    def _molecular_dipole(self, graph: Dict[str, torch.Tensor]):   
+    def _molecular_dipole(self, graph: Dict[str, torch.Tensor]):
         qm_coords = graph["qm_coordinates"] - compute_com(graph["qm_coordinates"], self.element_masses[graph["Z"]])
         contribution_dipoles = graph['dipos'].reshape(qm_coords.shape)
         contribution_monopoles = graph['monos'].reshape(qm_coords.shape[:2]).unsqueeze(-1) * qm_coords
@@ -145,9 +145,9 @@ class AMPQMMM(nn.Module):
     
     def _molecular_quadrupole(self, graph: Dict[str, torch.Tensor]):
         qm_coords = graph["qm_coordinates"] - compute_com(graph["qm_coordinates"], self.element_masses[graph["Z"]])
-        contribution_quadrupoles = graph['quads'].reshape((*qm_coords.shape, 3))
+        contribution_quadrupoles = graph['quads'].reshape((qm_coords.shape[0], qm_coords.shape[1], 3, 3))
         monos = A(A(graph['monos'].reshape(qm_coords.shape[:2])))
-        Rx2 = build_Rx2(qm_coords - qm_coords.mean(dim=1, keepdims=True))
+        Rx2 = build_Rx2(qm_coords - torch.mean(qm_coords, dim=1, keepdim=True))
         contribution_monopoles = (monos * Rx2)
         return (contribution_quadrupoles + contribution_monopoles).sum(dim=1)
     
