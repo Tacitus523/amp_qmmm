@@ -237,7 +237,7 @@ if __name__ == "__main__":
     # load parameters
     PARAMETERS = load_parameters_file(args.parameters_file)
     PARAMETERS["parameters_file"] = args.parameters_file
-    PARAMETERS["model_name"] = f'AMPQMMM_model_{PARAMETERS["system_name"]}_{PARAMETERS["experiment_name"]}_coulombqm_{PARAMETERS["time"]}_{PARAMETERS["random_seed"]}_{PARAMETERS["dtype"]}'
+    PARAMETERS["model_name"] = f'AMPQMMM_model'
 
     # set seed
     torch.manual_seed(PARAMETERS["random_seed"])
@@ -327,7 +327,7 @@ if __name__ == "__main__":
         validation_loader = DataLoader(validation_data, batch_size=1, shuffle=False, drop_last=True, collate_fn=collate_function)
 
     print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    PARAMETERS["experiment_name"] = f"{PARAMETERS['model_name']}_{PARAMETERS['n_steps']}_{PARAMETERS['cutoff']}A_POL{PARAMETERS['cutoff_lr']}A_{PARAMETERS['num_epochs']}x{len(training_loader)}x{PARAMETERS['batch_size']}_alpha_{PARAMETERS['alpha']}_beta_{PARAMETERS['beta']}_gamma_{PARAMETERS['gamma']}D{PARAMETERS['delta_qm']}D{PARAMETERS['delta_qmmm']}_M{PARAMETERS['multi_loss']}Q_N{PARAMETERS['n_channels']}FILTER_N{PARAMETERS['n_kernels']}KERNELS"
+    PARAMETERS["experiment_name"] = f"{PARAMETERS['model_name']}_{PARAMETERS['time']}"
     PARAMETERS["summary_path"] = os.path.abspath(os.path.join("summaries", PARAMETERS["experiment_name"]))
     PARAMETERS["save_path"] = os.path.abspath(os.path.join("results", PARAMETERS["experiment_name"]))
     log_general_stats(PARAMETERS["model_name"], PARAMETERS["experiment_name"], PARAMETERS["mol_charge"], PARAMETERS["random_seed"])
