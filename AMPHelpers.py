@@ -47,7 +47,7 @@ def pdist(qm_coordinates: Tensor):
     )  # .to(device=device)
     distance_matrix_norm = torch.zeros(
         (qm_coordinates.shape[0], qm_coordinates.shape[1], qm_coordinates.shape[1]),
-        device=qm_coordinates.device,
+        device=qm_coordinates.device, dtype=qm_coordinates.dtype
     )
     norm = torch.linalg.vector_norm(
         qm_coordinates[:, indices_triu[0]] - qm_coordinates[:, indices_triu[1]], dim=-1
@@ -156,6 +156,8 @@ def prepare_features_qm(
         torch.logical_and(distance_matrix < cutoff, distance_matrix > 0.0)
     )
     # indices = torch.where(distance_matrix < cutoff)
+    assert indices[0].shape[0] > 0, "No atoms within cutoff distance. The molecule likely exploded."
+
     mol_id, senders, receivers = indices
     coords_1, coords_2 = (
         qm_coordinates[mol_id, senders],
@@ -181,10 +183,10 @@ def prepare_features_qm(
 
 
 def build_graph(
-    qm_coordinates,
-    mm_coordinates,
-    qm_types,
-    mm_types,
+    qm_coordinates: Tensor,
+    mm_coordinates: Tensor,
+    qm_types: Tensor,
+    mm_types: Tensor,
     mol_charge: float,
     cutoff: float = 5.0,
     cutoff_lr: float = 10.0,
