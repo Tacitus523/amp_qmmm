@@ -93,6 +93,7 @@ def prepare_features_qmmm(
     device: torch.device = torch.device("cuda"),
 ):
     indices_qmmm = torch.where(distance_matrix < cutoff_lr)
+    assert indices_qmmm[0].shape[0] > 0, "No atoms within cutoff distance. A dummy MM atom is introduced at the origin. Increase cutoff_lr to register it."
     batch_indices, receivers_qmmm, senders_qmmm = indices_qmmm
     qm_indices = torch.stack((batch_indices, receivers_qmmm), dim=0)
     mm_indices = torch.stack((batch_indices, senders_qmmm), dim=0)
@@ -125,6 +126,7 @@ def prepare_features_esp(
     device: torch.device = torch.device("cuda"),
 ):
     indices_esp = torch.where(distance_matrix < cutoff_esp)
+    assert indices_esp[0].shape[0] > 0, "No atoms within cutoff distance. A dummy MM atom is introduced at the origin. Increase cutoff_esp to register it."
     batch_indices_esp, receivers_esp, senders_esp = indices_esp
     qm_indices_esp = torch.stack((batch_indices_esp, receivers_esp), dim=0)
     mm_indices_esp = torch.stack((batch_indices_esp, senders_esp), dim=0)
