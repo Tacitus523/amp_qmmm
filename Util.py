@@ -16,6 +16,7 @@ from typing import Dict
 import torchlayers as tl
 from AMPQMMM import AMPQMMM as AMPQMMM_Precision
 from AMPQMMMmin import AMPQMMM as AMPQMMM_Minimal
+from datetime import datetime
 
 H_TO_KJ = 627.509474 * 4.184
 BOHR_TO_ANGSTROM = 0.529177210903
@@ -367,7 +368,7 @@ INPUT_LAYOUT = {
 def load_parameters_file(filename: str):
     file = open(filename, "r")
     PARAMETERS = yaml.load(file, yaml.Loader)
-    PARAMETERS["time"] = int(time.time())
+    PARAMETERS["time"] = datetime.now().strftime("%Y-%m-%d-%H-%M")
 
     return PARAMETERS
 
