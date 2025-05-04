@@ -572,11 +572,15 @@ def evaluate_on_dataset(model, stage, data_loader, PARAMETERS, write_results: No
                 molecule_properties = {
                     "qm_energies_ref": batch["qm_energies"].cpu().detach().numpy(),
                     "qm_energies_pred": prediction.cpu().detach().numpy(),
-                    "dipole_ref": batch["qm_dipoles"].cpu().detach().numpy(),
-                    "dipole_pred": pred_dipole.cpu().detach().numpy(),
-                    "quadrupole_ref": batch["qm_quadrupoles"].cpu().detach().numpy(),
-                    "quadrupole_pred": pred_quadrupole.cpu().detach().numpy()[:, [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]],
                 }
+
+                if PARAMETERS['multi_loss']:
+                    molecule_properties.update({
+                        "dipole_ref": batch["qm_dipoles"].cpu().detach().numpy(),
+                        "dipole_pred": pred_dipole.cpu().detach().numpy(),
+                        "quadrupole_ref": batch["qm_quadrupoles"].cpu().detach().numpy(),
+                        "quadrupole_pred": pred_quadrupole.cpu().detach().numpy()[:, [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]],
+                    })
 
                 atom_properties = {
                     "qm_gradients_ref": batch["qm_gradients"].cpu().detach().numpy(),
