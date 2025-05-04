@@ -37,7 +37,7 @@ def get_ref(mols, energy_keyword=None, forces_keyword=None, dipole_keyword=None,
     ref_dipoles = []
     ref_quadrupoles = []
     for m in mols:
-        if dipole_keyword:
+        if dipole_keyword and dipole_keyword in m.info:
             ref_dipoles.extend(m.info[dipole_keyword].flatten())
         if energy_keyword:
             if energy_keyword == "energy":
@@ -49,14 +49,16 @@ def get_ref(mols, energy_keyword=None, forces_keyword=None, dipole_keyword=None,
                 ref_forces.extend(m.get_forces().flatten())
             else:
                 ref_forces.extend(m.arrays[forces_keyword].flatten())
-        if quadrupole_keyword:
+        if quadrupole_keyword and quadrupole_keyword in m.info:
             ref_quadrupoles.extend(m.info[quadrupole_keyword].flatten())
-    return {
-        "energy": np.array(ref_energy),
-        "forces": np.array(ref_forces),
-        "dipole": np.array(ref_dipoles),
-        "quadrupole": np.array(ref_quadrupoles),
-    }
+    result = {}
+    result["energy"] = np.array(ref_energy)
+    result["forces"] = np.array(ref_forces)
+    if len(ref_dipoles) > 0:
+        result["dipole"] = np.array(ref_dipoles)
+    if len(ref_quadrupoles) > 0:
+        result["quadrupole"] = np.array(ref_quadrupoles)
+    return result
 
 def plot_data(ref_data, pred_data, key, xlabel, ylabel, filename):
     """Generic function to plot reference vs predicted data."""
@@ -80,8 +82,10 @@ def main():
 
     plot_data(ref_data, AMP_data, "energy", "Ref energy", "AMP energy", "AMPenergy.png")
     plot_data(ref_data, AMP_data, "forces", "Ref forces", "AMP forces", "AMPforces.png")
-    plot_data(ref_data, AMP_data, "dipole", "Ref dipole", "AMP dipole", "AMPdipole.png")
-    plot_data(ref_data, AMP_data, "quadrupole", "Ref quadrupole", "AMP quadrupole", "AMPquadrupole.png")
+    if "dipole" in ref_data and "dipole" in AMP_data:
+        plot_data(ref_data, AMP_data, "dipole", "Ref dipole", "AMP dipole", "AMPdipole.png")
+    if "quadrupole" in ref_data and "quadrupole" in AMP_data:
+        plot_data(ref_data, AMP_data, "quadrupole", "Ref quadrupole", "AMP quadrupole", "AMPquadrupole.png")
 
 if __name__ == "__main__":
     main()
