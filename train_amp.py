@@ -96,8 +96,6 @@ def train_one_epoch(epoch, model, optimizer, loss_fn, training_loader, PARAMETER
                 loss_quadrupoles = PARAMETERS['gamma'] * quadrupole_loss(batch['qm_quadrupoles'], pred_quadrupole, loss_fn)
 
             # compute loss (training)
-            if not PARAMETERS["single_system"]:
-                prediction = prediction - prediction[0]
             loss_potential = (1 - PARAMETERS['alpha']) * loss_fn(prediction, batch['qm_energies'])
             loss_qm_gradient = PARAMETERS['alpha'] * loss_fn(qm_gradients_pred, batch['qm_gradients'])
             loss_mm_gradient = PARAMETERS['alpha'] * PARAMETERS['beta'] * loss_fn(mm_gradients_pred, batch['mm_gradients'])        

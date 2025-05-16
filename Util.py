@@ -11,11 +11,12 @@ import os
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 from torchmetrics import MeanAbsoluteError as MAE
-from typing import Dict
+from typing import Dict, Tuple, List
 
 import torchlayers as tl
 from AMPQMMM import AMPQMMM as AMPQMMM_Precision
 from AMPQMMMmin import AMPQMMM as AMPQMMM_Minimal
+from modules import AtomicEnergiesModule
 from datetime import datetime
 
 H_TO_KJ = 627.509474 * 4.184
@@ -125,8 +126,8 @@ class SingleSystemOrcaXtbDataset(Dataset):
         # save e0 (global)
         self._e0_idx = np.argmin(np.abs(self._qm_energies - np.mean(self._qm_energies)))
         self._e0 = self._qm_energies[self._e0_idx]
-        # subtract e0
-        self._qm_energies = self._qm_energies - self._e0
+        # # subtract e0
+        # self._qm_energies = self._qm_energies - self._e0
         # take the correct slices
         self._qm_coordinates = self._qm_coordinates[start_idx:end_idx]
         self._mm_coordinates = self._mm_coordinates[start_idx:end_idx]
@@ -307,7 +308,7 @@ class MultiSystemOrcaXtbDataset(Dataset):
             # move away empty (padded) MM particles
             batch_directory["mm_coordinates"][np.where(np.abs(batch_directory["mm_coordinates"]).sum(-1) == 0)] += 1e5
             batch_directory["qm_energies"] = batch_directory["qm_energies"].reshape([-1, 1]) * ENERGY_CONVERSION
-            batch_directory["qm_energies"] = batch_directory["qm_energies"] - batch_directory["qm_energies"][0]
+            #batch_directory["qm_energies"] = batch_directory["qm_energies"] - batch_directory["qm_energies"][0]
             batch_directory["qm_gradients"] = batch_directory["qm_gradients"] * FORCE_CONVERSION
             batch_directory["mm_gradients"] = batch_directory["mm_gradients"] * FORCE_CONVERSION
             if self._delta_qmmm:
@@ -396,7 +397,13 @@ def instantiate_model(PARAMETERS: dict, training_data):
         if PARAMETERS["delta_qmmm"] or PARAMETERS["delta_qm"]:
             print(f"dE0 saved in parameters: {PARAMETERS['dE0']}")
     else:
-        instantiation_loader = DataLoader(training_data, collate_fn=lambda x: x[0], shuffle=False)
+        collate_function = def_collate_fn(PARAMETERS["batch_size"])
+        instantiation_loader = DataLoader(training_data, collate_fn=collate_function, shuffle=False)
+
+    atomic_energies_dict: Dict[int, float] = PARAMETERS["E0s"]
+    mean, std = compute_mean_std(instantiation_loader, atomic_energies_dict)
+    PARAMETERS["shift"] = mean
+    PARAMETERS["scale"] = std
 
     # backup user selection
     user_device_name = PARAMETERS["device_name"]
@@ -412,10 +419,12 @@ def instantiate_model(PARAMETERS: dict, training_data):
         print(f"unknown model architecture: {PARAMETERS['model_architecture']}")
         sys.exit(1)
 
-    sample_batch = next(iter(instantiation_loader))
+    sample_batch: Dict[str, torch.Tensor]|List[Dict[str, torch.Tensor]] = next(iter(instantiation_loader))
+    if isinstance(sample_batch, list):
+        sample_batch = sample_batch[0]
 
     # check dtype
-    for key in sample_batch:
+    for key in sample_batch.keys():
         if sample_batch[key] is not None and sample_batch[key].dtype != torch.int64:
             if PARAMETERS["dtype"] == "float32":
                 assert sample_batch[key].dtype == torch.float32
@@ -457,8 +466,6 @@ def instantiate_model(PARAMETERS: dict, training_data):
         #     print()
 
     return model
-
-
 
 def set_model_dtype(model, PARAMETERS):
     if PARAMETERS["dtype"] == "float32" or PARAMETERS["dtype"] == torch.float32:
@@ -546,8 +553,8 @@ def evaluate_on_dataset(model, stage, data_loader, PARAMETERS, write_results: No
             qm_gradients_pred = torch.autograd.grad(prediction, input[INPUT_LAYOUT["qm_coordinates"]], grad_outputs=torch.ones_like(prediction), retain_graph=True)[0]
             mm_gradients_pred = torch.autograd.grad(prediction, input[INPUT_LAYOUT["mm_coordinates"]], grad_outputs=torch.ones_like(prediction), retain_graph=False)[0]
 
-            if not PARAMETERS["single_system"]:
-                prediction = prediction - prediction[0]
+            # if not PARAMETERS["single_system"]:
+            #     prediction = prediction - prediction[0]
 
             if PARAMETERS['delta_qm']:
                 prediction += batch['delta_qm_energies']
@@ -712,3 +719,56 @@ def def_collate_fn(batch_size):
 
         return smaller_batches
     return custom_collate_fn
+
+def compute_mean_std(data_loader: DataLoader, atomic_energies_dict: Dict[int, float]) -> Tuple[float, float]:
+    """
+    Compute the mean and standard deviation of energy values from a dataset.
+    
+    Args:
+        data_loader: DataLoader providing the dataset
+        atomic_energies_dict: Dictionary mapping atomic numbers to reference energies
+        device: device to perform computations on
+        
+    Returns:
+        tuple: (mean, std) of interaction energy (after subtracting atomic reference energies)
+    """
+
+    # Create a standalone AtomicEnergiesModule for this calculation
+    atomic_energies_module = AtomicEnergiesModule(atomic_energies_dict)
+    
+    energy_diffs_per_atom = []
+    for dict_list_idx, dict_list in enumerate(data_loader):
+        if isinstance(dict_list, dict):
+            dict_list = [dict_list]
+            
+        for dict_idx, batch in enumerate(dict_list):
+            
+            # Convert batch to input format and extract QM types
+            inputs = batch_to_input(batch)
+            qm_types = inputs[INPUT_LAYOUT["qm_charges"]] # Shape: (n_atoms,)
+            
+            # Get reference energies for this configuration
+            atomic_energies = atomic_energies_module(qm_types)
+            
+            # Calculate energy differences
+            batch_energy_diffs = batch['qm_energies'] - atomic_energies
+            batch_energy_diffs_per_atom = batch_energy_diffs / qm_types.shape[0]
+            energy_diffs_per_atom.append(batch_energy_diffs_per_atom)
+    
+    # Concatenate all energy differences
+    energy_diffs_per_atom = torch.cat(energy_diffs_per_atom, dim=0)
+    
+    # Calculate mean and standard deviation
+    mean = torch.mean(energy_diffs_per_atom).item()
+    std = torch.std(energy_diffs_per_atom).item()
+    
+    # Check for valid standard deviation
+    if std < 1e-6:
+        print("Warning: Standard deviation is very small, setting to 1.0 to avoid numerical issues")
+        std = 1.0
+    
+    print(f"Calculated statistics from {len(energy_diffs_per_atom)} configurations")
+    print(f"Mean interaction energy: {mean:.6f}")
+    print(f"Std. dev. interaction energy: {std:.6f}")
+    
+    return mean, std

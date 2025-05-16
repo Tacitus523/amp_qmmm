@@ -1,4 +1,5 @@
 from AMPHelpers import S, A, build_graph, build_Rx2, ff_module
+from modules import AtomicEnergiesModule, ScaleShiftBlock
 
 import torch
 import torch.nn as nn
@@ -16,8 +17,15 @@ class AMPQMMM(nn.Module):
         if not "mol_charge" in kwargs:
             self.mol_charge = 0.0
         self.__dict__.update(kwargs)
-        self.a, self.b, self.c = 6.0, 15.0, 10.0
+        self.a, self.b, self.c = 6.0, 15.0, 10.0 # Switching function parameters
         self.register_buffer("element_masses", torch.load(os.path.join(os.path.dirname(__file__), "constants", "element_masses.pt")))
+
+        # Initialize atomic energies module with the provided dictionary
+        atomic_energies_dict = kwargs["E0s"]
+        self.atomic_energies_fn = AtomicEnergiesModule(atomic_energies_dict)
+        
+        # Add scale shift block for energy scaling
+        self.scale_shift = ScaleShiftBlock(scale=kwargs.get("scale", 1.0), shift=kwargs.get("shift", 0.0))
         
         self.embedding_nodes = tl.Linear(self.node_size, bias=False)
         self.embedding_edges = tl.Linear(self.node_size // 4, bias=False)
@@ -57,13 +65,17 @@ class AMPQMMM(nn.Module):
         return self._calculate_energy_terms(graph)
     
     def _calculate_energy_terms(self, graph: Dict[str, torch.Tensor]):
-        qm_term = self.QMMM_potential(graph['nodes'])        
+        e0 = self.atomic_energies_fn(graph['Z']).unsqueeze(-1)
+        qm_term = self.QMMM_potential(graph['nodes'])
+        qm_term = self.scale_shift(qm_term)
+
         qm_term = torch.reshape(qm_term, [int(graph['batch_size']), -1]).sum(-1, keepdim=True)
+
         coulomb_term, graph = self._calculate_coulomb_term(graph) 
         if self.delta_qm or self.delta_qmmm:
-            return qm_term + coulomb_term, graph
+            return e0 + qm_term + coulomb_term, graph
         else:
-            return qm_term + coulomb_term, graph
+            return e0 + qm_term + coulomb_term, graph
         
     def _calculate_coulomb_term(self, graph: Dict[str, torch.Tensor]):
         QM_charges = self.QMMM_density(graph['nodes']) * 1e-2
