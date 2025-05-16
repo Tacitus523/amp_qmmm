@@ -384,6 +384,11 @@ def batch_to_input(batch: tuple) -> tuple:
 
 
 def instantiate_model(PARAMETERS: dict, training_data):
+    if PARAMETERS["dtype"] == "float32":
+        torch.set_default_dtype(torch.float32)
+    elif PARAMETERS["dtype"] == "float64":
+        torch.set_default_dtype(torch.float64)
+
     # loader to instantiate model
     if PARAMETERS["single_system"]:
         instantiation_loader = DataLoader(training_data, batch_size=PARAMETERS["batch_size"], shuffle=False)
