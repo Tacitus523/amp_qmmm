@@ -35,7 +35,7 @@ class AtomicEnergiesModule(torch.nn.Module):
         unique_atomic_numbers = torch.unique(atomic_numbers)
         assert self.specified_mask[unique_atomic_numbers].all(), (
             f"No energy specified for element(s) with atomic number(s): "
-            f"{unique_atomic_numbers[~self.specified_mask[unique_atomic_numbers]].tolist()}"
+            f"{unique_atomic_numbers[~self.specified_mask[unique_atomic_numbers]]}"
         )
         
         # Retrieve and sum the energies
