@@ -234,8 +234,6 @@ if __name__ == "__main__":
 
     # load parameters
     PARAMETERS = load_parameters_file(args.parameters_file)
-    PARAMETERS["parameters_file"] = args.parameters_file
-    PARAMETERS["model_name"] = f'AMPQMMM_model'
 
     # set seed
     torch.manual_seed(PARAMETERS["random_seed"])

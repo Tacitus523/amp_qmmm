@@ -2,7 +2,7 @@ import ase
 from ase.io import write
 import torch
 import numpy as np
-import torchlayers as tl
+from typing import Dict, List, Callable
 import time
 import yaml
 import sys
@@ -290,21 +290,11 @@ class MultiSystemOrcaXtbDataset(Dataset):
         self._multi_loss = multi_loss
         self._dtype = dtype
         self._batch_files = [os.path.join(self._base_path, file) for file in os.listdir(self._base_path) if "batch" in file and file.endswith(".npy")]
-        # assume everything fits into main memory
-        self._batch_directories = [np.load(file, allow_pickle=True).item() for file in self._batch_files]
         self._length = len(self._batch_files)
-        for batch_directory in self._batch_directories:
-            # assert same number of frames per dimension
-            current_num_frames = batch_directory["qm_energies"].shape[0]
-            for item in batch_directory.values():
-                assert len(item) == current_num_frames
-            # assert all entries in the current batch are from the same molecule
-            assert np.all(np.all(batch_directory["qm_charges"] == batch_directory["qm_charges"][0, :], axis=1))
-            # batch_directory["delta_qm_energies"] = batch_directory["delta_qm_energies"] - batch_directory["delta_qm_energies"][0]
-            # batch_directory["delta_qm_energies"] = batch_directory["delta_qm_energies"].reshape([-1, 1]) * ENERGY_CONVERSION
-            # batch_directory["delta_qm_gradients"] = batch_directory["delta_qm_gradients"] * FORCE_CONVERSION
-            # batch_directory["delta_mm_gradients"] = batch_directory["delta_mm_gradients"] * FORCE_CONVERSION
-            batch_directory["qm_charges"] = batch_directory["qm_charges"].astype(np.int64)
+        # assume everything fits into main memory
+        unprocessed_batch_directories = [np.load(file, allow_pickle=True).item() for file in self._batch_files]
+        self._batch_directories = []
+        for batch_directory in unprocessed_batch_directories:
             # move away empty (padded) MM particles
             batch_directory["mm_coordinates"][np.where(np.abs(batch_directory["mm_coordinates"]).sum(-1) == 0)] += 1e5
             batch_directory["qm_energies"] = batch_directory["qm_energies"].reshape([-1, 1]) * ENERGY_CONVERSION
@@ -321,11 +311,7 @@ class MultiSystemOrcaXtbDataset(Dataset):
                 batch_directory["delta_qm_energies"] = batch_directory["qm_energies"] - batch_directory["delta_qm_energies"]
                 batch_directory["delta_qm_gradients"] = batch_directory["qm_gradients"] - batch_directory["delta_qm_gradients"]
                 batch_directory["delta_mm_gradients"] = batch_directory["mm_gradients"]
-            # else:
-            #     # drop superfluous entries
-            #     del batch_directory["delta_qm_energies"]
-            #     del batch_directory["delta_qm_gradients"]
-            #     del batch_directory["delta_mm_gradients"]
+
             if not self._multi_loss:
                 # drop superfluous entries
                 del batch_directory["qm_dipoles"]
@@ -334,16 +320,28 @@ class MultiSystemOrcaXtbDataset(Dataset):
                 batch_directory["qm_dipoles"] = batch_directory["qm_dipoles"] * MULTIPOLE_CONVERSION
                 batch_directory["qm_quadrupoles"][:, :3] = batch_directory["qm_quadrupoles"][:, :3] - np.mean(batch_directory["qm_quadrupoles"][:, :3], axis=-1, keepdims=True)
                 batch_directory["qm_quadrupoles"] = batch_directory["qm_quadrupoles"] * (MULTIPOLE_CONVERSION ** 2)
+                
             # cast dtype
             for key in batch_directory:
                 if key != "qm_charges":
                     if self._dtype == "float32":
-                        batch_directory[key] = np.float32(batch_directory[key])
+                        batch_directory[key] = batch_directory[key].astype(np.float32)
                     elif self._dtype == "float64":
-                        batch_directory[key] = np.float64(batch_directory[key])
+                        batch_directory[key] = batch_directory[key].astype(np.float64)
                     else:
                         print(f"Unsupported dtype: {self._dtype}")
                         sys.exit(1)
+            batch_directory["qm_charges"] = batch_directory["qm_charges"].astype(np.int64)
+
+            # assert same number of frames per dimension
+            current_num_frames = batch_directory["qm_coordinates"].shape[0]
+            for key, value in batch_directory.items():
+                assert len(value) == current_num_frames
+
+            # assert all entries in the current batch are from the same molecule
+            assert np.all(np.all(batch_directory["qm_charges"] == batch_directory["qm_charges"][0, :], axis=1))
+
+            self._batch_directories.append(batch_directory)
 
     def __len__(self):
         return self._length
@@ -370,6 +368,9 @@ def load_parameters_file(filename: str):
     file = open(filename, "r")
     PARAMETERS = yaml.load(file, yaml.Loader)
     PARAMETERS["time"] = datetime.now().strftime("%Y-%m-%d-%H-%M")
+    PARAMETERS["data_path"] = os.path.abspath(PARAMETERS["data_path"])
+    PARAMETERS["model_name"] = f'AMPQMMM_model'
+    PARAMETERS["parameters_file"] = filename
 
     return PARAMETERS
 
@@ -582,21 +583,23 @@ def evaluate_on_dataset(model, stage, data_loader, PARAMETERS, write_results: No
 
             if write_results is not None:
                 molecule_properties = {
-                    "qm_energies_ref": batch["qm_energies"].cpu().detach().numpy(),
-                    "qm_energies_pred": prediction.cpu().detach().numpy(),
+                    "ref_energy": batch["qm_energies"].cpu().detach().numpy(),
+                    "pred_energy": prediction.cpu().detach().numpy(),
                 }
 
                 if PARAMETERS['multi_loss']:
                     molecule_properties.update({
-                        "dipole_ref": batch["qm_dipoles"].cpu().detach().numpy(),
-                        "dipole_pred": pred_dipole.cpu().detach().numpy(),
-                        "quadrupole_ref": batch["qm_quadrupoles"].cpu().detach().numpy(),
-                        "quadrupole_pred": pred_quadrupole.cpu().detach().numpy()[:, [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]],
+                        "ref_dipole": batch["qm_dipoles"].cpu().detach().numpy(),
+                        "pred_dipole": pred_dipole.cpu().detach().numpy(),
+                        "ref_quadrupole": batch["qm_quadrupoles"].cpu().detach().numpy(),
+                        "pred_quadrupole": pred_quadrupole.cpu().detach().numpy()[:, [0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]],
                     })
 
                 atom_properties = {
-                    "qm_gradients_ref": batch["qm_gradients"].cpu().detach().numpy(),
-                    "qm_gradients_pred": qm_gradients_pred.cpu().detach().numpy(),
+                    "ref_gradient": batch["qm_gradients"].cpu().detach().numpy(),
+                    "pred_gradient": qm_gradients_pred.cpu().detach().numpy(),
+                    "ref_force": -1*batch["qm_gradients"].cpu().detach().numpy(),
+                    "pred_force": -1*qm_gradients_pred.cpu().detach().numpy(),
                 }
 
                 write_extxyz(
@@ -699,26 +702,27 @@ def write_extxyz(
     write(filename, molecules, format="extxyz", append=True)
     return
 
-def def_collate_fn(batch_size):
-    def custom_collate_fn(batch):
+def def_collate_fn(batch_size: int) -> Callable:
+    def custom_collate_fn(batch: List[Dict[str, np.ndarray]], batch_size: int =batch_size) -> List[Dict[str, np.ndarray]]:
         """
         Custom collate function to split large dictionaries into smaller batches.
         Args:
-            batch: A list of dictionaries (from training_data).
+            batch: List of dictionaries to be collated.
+            batch_size: Desired size of the smaller batches.
         Returns:
-            A list of smaller dictionaries (batches).
+            List of smaller batches, each containing a dictionary.
         """
         # Assume batch contains one dictionary at a time (since batch_size=1 in DataLoader)
         large_dict = batch[0]  # Extract the single dictionary from the batch
         smaller_batches = []
 
-
         num_entries = len(next(iter(large_dict.values())))  # Get the number of entries in the dictionary
-        assertion_error_text = f"Batch size {batch_size} is larger than the number of entries {num_entries} in the dictionary."
-        assert batch_size < num_entries, assertion_error_text
+        batch_size = min(batch_size, num_entries)  # Ensure batch size does not exceed number of entries
 
         # Split each key's data into smaller chunks
         for i in range(0, num_entries, batch_size):
+            for key, value in large_dict.items():
+                value[i:i + batch_size]
             small_batch = {key: value[i:i + batch_size] for key, value in large_dict.items()}
             smaller_batches.append(small_batch)
 
