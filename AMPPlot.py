@@ -21,14 +21,14 @@ AMP_GEOMS: str = "amp_qmmm_geoms.extxyz"
 DATA_SOURCES_FILE: Optional[str] = None  # File containing the data source of each entry
 
 # Keywords for extracting data
-REF_ENERGY_KEY: str = "qm_energies_ref"
-REF_FORCES_KEY: str = "qm_gradients_ref"
-REF_DIPOLE_KEY:str = "dipole_ref"
-REF_QUADRUPOLE_KEY: str = "quadrupole_ref"
-PRED_ENERGY_KEY: str = "qm_energies_pred"
-PRED_FORCES_KEY: str = "qm_gradients_pred"
-PRED_DIPOLE_KEY: str = "dipole_pred"
-PRED_QUADRUPOLE_KEY: str = "quadrupole_pred"
+REF_ENERGY_KEY: str = "ref_energy"
+REF_FORCES_KEY: str = "ref_force"
+REF_DIPOLE_KEY:str = "ref_dipole"
+REF_QUADRUPOLE_KEY: str = "ref_quadrupole"
+PRED_ENERGY_KEY: str = "pred_energy"
+PRED_FORCES_KEY: str = "pred_force"
+PRED_DIPOLE_KEY: str = "pred_dipole"
+PRED_QUADRUPOLE_KEY: str = "pred_quadrupole"
 
 # Units for plotting
 ENERGY_UNIT: str = "eV"
