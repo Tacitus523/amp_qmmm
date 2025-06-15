@@ -378,11 +378,10 @@ def batch_to_input(batch: tuple) -> tuple:
     # check if all atoms are identical (only one molecule)
     assert(all(torch.all(torch.eq(batch["qm_charges"][0], batch["qm_charges"][i])) for i in range(1, batch["qm_charges"].size(0))))
     qm_charges = batch["qm_charges"][0]
-    qm_coordinates = batch["qm_coordinates"]
+    qm_coordinates = batch["qm_coordinates"].requires_grad_(True)
     mm_charges = batch["mm_charges"]
-    mm_coordinates = batch["mm_coordinates"]
+    mm_coordinates = batch["mm_coordinates"].requires_grad_(True)
     return (qm_charges, qm_coordinates, None, mm_charges, mm_coordinates)
-
 
 def instantiate_model(PARAMETERS: dict, training_data):
     if PARAMETERS["dtype"] == "float32":
@@ -407,9 +406,10 @@ def instantiate_model(PARAMETERS: dict, training_data):
         instantiation_loader = DataLoader(training_data, collate_fn=collate_function, shuffle=False)
 
     atomic_energies_dict: Dict[int, float] = PARAMETERS["E0s"]
-    mean, std = compute_mean_std(instantiation_loader, atomic_energies_dict)
-    PARAMETERS["shift"] = mean
-    PARAMETERS["scale"] = std
+    if not "shift" in PARAMETERS or not "scale" in PARAMETERS:
+        mean, std = compute_mean_std(instantiation_loader, atomic_energies_dict)
+        PARAMETERS["shift"] = mean
+        PARAMETERS["scale"] = std
 
     # backup user selection
     user_device_name = PARAMETERS["device_name"]
@@ -444,7 +444,7 @@ def instantiate_model(PARAMETERS: dict, training_data):
     model.device = cpu_device
     model.dtype = PARAMETERS["dtype"]
 
-    sample_input = (sample_batch["qm_charges"][0], sample_batch["qm_coordinates"], None, sample_batch["mm_charges"], sample_batch["mm_coordinates"])
+    sample_input = batch_to_input(sample_batch)
 
     model = tl.build(model, sample_input)
     # print("Sample batch on CPU:")
@@ -489,7 +489,7 @@ def set_model_dtype(model, PARAMETERS):
     return model
 
 def load_state_dict(model, PARAMETERS):
-    model.load_state_dict(torch.load(os.path.join(PARAMETERS["save_path"], f"{PARAMETERS['model_name']}_state_dict.pth")))
+    model.load_state_dict(torch.load(os.path.join(PARAMETERS["save_path"], f"{PARAMETERS['model_name']}_state_dict.pth"), map_location=PARAMETERS["device_name"]))
     assert_correct_dtype(model, PARAMETERS)
 
     return model
@@ -537,8 +537,6 @@ def evaluate_on_dataset(model, stage, data_loader, PARAMETERS, write_results: No
             # transfer batch to GPU and prepare input
             for key, tensor in batch.items():
                 batch[key] = tensor.to(model.device) if isinstance(tensor, torch.Tensor) else None
-                if key == "qm_coordinates" or key == "mm_coordinates":
-                    batch[key].requires_grad = True
 
             # check dtype
             for key in batch:

@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 import torch
 from torch import Tensor
 import torch.nn as nn
@@ -208,7 +210,6 @@ def build_graph(
     n_node = torch.full([qm_types.shape[0]], 1, dtype=torch.int64, device=device)
     distance_matrix = cdist(qm_coordinates, mm_coordinates)
     # distance_matrix = cdist(qm_coordinates, mm_coordinates, device=device)
-    # distance_matrix = torch.cdist(qm_coordinates, mm_coordinates)
     (
         R1,
         Rx1,
@@ -310,3 +311,27 @@ def ff_module(
     if final_activation is not None:
         layers.append(final_activation)
     return nn.Sequential(*layers)  # .to(device)
+
+def test_gradient_path(output_tensor: Tensor, input_tensor: Tensor, name: str = ""):
+    """Test if gradient can flow from output to input"""
+    if output_tensor.requires_grad is True:
+        grad_outputs: List[Optional[Tensor]] = [torch.ones_like(output_tensor)]
+        grad = torch.autograd.grad(
+            outputs=[output_tensor], 
+            inputs=[input_tensor],
+            grad_outputs=grad_outputs,
+            retain_graph=True,
+            create_graph=False,
+            allow_unused=True
+        )[0]
+        
+        if grad is not None:
+            print(f"✓ {name}: Gradient connection exists")
+            print(grad)
+            return True
+        else:
+            print(f"✗ {name}: No gradient connection")
+            return False
+    else:
+        print(f"✗ {name}: Output tensor does not require gradient")
+        return False

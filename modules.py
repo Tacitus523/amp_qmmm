@@ -12,7 +12,7 @@ class AtomicEnergiesModule(torch.nn.Module):
         # Initialize atomic energies tensor with max size 118 (number of elements in periodic table)
         max_elements = 118
         atomic_energies = torch.zeros(max_elements + 1, dtype=torch.get_default_dtype())  # +1 for dummy at position 0
-        specified_mask = torch.zeros(max_elements + 1, dtype=torch.bool)
+        specified_mask = torch.zeros(max_elements + 1, dtype=torch.bool) # For keeping track which energies are given in the input
         
         # Fill in specified energies
         for atomic_number, energy in atomic_energies_dict.items():

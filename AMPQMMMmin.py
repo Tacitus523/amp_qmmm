@@ -1,4 +1,4 @@
-from AMPHelpers import S, A, build_graph, build_Rx2, ff_module
+from AMPHelpers import S, A, build_graph, build_Rx2, ff_module, test_gradient_path
 from modules import AtomicEnergiesModule, ScaleShiftBlock
 
 import torch
@@ -6,7 +6,7 @@ import torch.nn as nn
 import torchlayers as tl
 import os
 
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional, List
 from torch import Tensor
 from torch_scatter import scatter
 
@@ -41,17 +41,28 @@ class AMPQMMM(nn.Module):
         if self.aniso_esp:
             self.QM_coefficients = ff_module(self.node_size, 1, output_size=self.order + 1, activation=self.activation)
 
-    def forward(self, inputs: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]):
-        return self._run(inputs)[0]
+    def forward(self, inputs: Tuple[Tensor, Tensor, None, Tensor, Tensor]):
+        potential_energy, _ = self.forward_with_graph(inputs)
+        return potential_energy
     
-    def forward_with_graph(self, inputs: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]):
-        return self._run(inputs)
-    
-    def forward_with_molecular_dipole(self, inputs: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]):
+    def forward_with_graph(self, inputs: Tuple[Tensor, Tensor, None, Tensor, Tensor]):
+        for model_input in inputs:
+            if model_input is None:
+                continue
+            print(f"Input shape: {model_input.shape}")
+            if model_input.ndim == 1:
+                print(f"Input values:\n {model_input[:5]}")
+            else:
+                print(f"Input values:\n {model_input[0, :5]}")
+
+        potential_energy, graph = self._run(inputs)
+        return potential_energy, graph
+
+    def forward_with_molecular_dipole(self, inputs: Tuple[Tensor, Tensor, None, Tensor, Tensor]):
         potential_energy, graph = self._run(inputs)
         return potential_energy, self._molecular_dipole(graph)
     
-    def _run(self, inputs: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]):
+    def _run(self, inputs: Tuple[Tensor, Tensor, None, Tensor, Tensor]):
         qm_types, qm_coordinates, _, mm_charges, mm_coordinates = inputs
         graph = build_graph(qm_coordinates, mm_coordinates, qm_types, mm_charges, mol_charge=self.mol_charge,
                             cutoff=self.cutoff, cutoff_lr=self.cutoff_lr, cutoff_esp=self.cutoff_esp,
@@ -94,7 +105,11 @@ class AMPQMMM(nn.Module):
                                    graph['nodes'][graph['senders']]), dim=-1)
         graph['edges'] = self.embedding_edges(features_edge)
         graph['nodes'] = self.embedding_nodes(graph['nodes'])
-        graph['edge_features'] = graph['edges'].clone().detach()
+        # graph['edge_features'] = graph['edges'].clone().detach()
+        # We want to keep the gradients for the edge features.
+        # Also: Libtorch in C++ does not seem to detach the tensors
+        graph['edge_features'] = graph['edges'].clone() 
+        
         #graph['edge_features_qmmm'] = torch.cat((graph['nodes'][graph['receivers_qmmm']], graph['edges_qmmm'])
         return graph
     
@@ -110,7 +125,7 @@ class AMPQMMM(nn.Module):
             graph['edge_features'] = torch.cat((aniso_feature, graph['edges']), dim=-1)
             message_features = torch.cat((features_ij, graph['edge_features']), dim=-1)
             messages = scatter(in_message_layer(message_features) * graph['envelope_qm'], graph['receivers'], dim=0)
-            graph['nodes'] = graph['nodes'] + in_update_layer(torch.cat((graph['nodes'], messages), dim=-1)) 
+            graph['nodes'] = graph['nodes'] + in_update_layer(torch.cat((graph['nodes'], messages), dim=-1))
         return graph
         
     def _build_multipoles_esp(self, graph: Dict[str, torch.Tensor]):
