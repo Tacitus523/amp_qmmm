@@ -46,15 +46,6 @@ class AMPQMMM(nn.Module):
         return potential_energy
     
     def forward_with_graph(self, inputs: Tuple[Tensor, Tensor, None, Tensor, Tensor]):
-        for model_input in inputs:
-            if model_input is None:
-                continue
-            print(f"Input shape: {model_input.shape}")
-            if model_input.ndim == 1:
-                print(f"Input values:\n {model_input[:5]}")
-            else:
-                print(f"Input values:\n {model_input[0, :5]}")
-
         potential_energy, graph = self._run(inputs)
         return potential_energy, graph
 
