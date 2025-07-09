@@ -21,14 +21,14 @@ AMP_GEOMS: str = "amp_qmmm_geoms.extxyz"
 DATA_SOURCES_FILE: Optional[str] = None  # File containing the data source of each entry
 
 # Keywords for extracting data
-REF_ENERGY_KEY: str = "ref_energy"
-REF_FORCES_KEY: str = "ref_force"
-REF_DIPOLE_KEY:str = "ref_dipole"
-REF_QUADRUPOLE_KEY: str = "ref_quadrupole"
-PRED_ENERGY_KEY: str = "pred_energy"
-PRED_FORCES_KEY: str = "pred_force"
-PRED_DIPOLE_KEY: str = "pred_dipole"
-PRED_QUADRUPOLE_KEY: str = "pred_quadrupole"
+REF_ENERGY_KEY: Optional[str] = "ref_energy"
+REF_FORCES_KEY: Optional[str] = "ref_force"
+REF_DIPOLE_KEY: Optional[str] = "ref_dipole"
+REF_QUADRUPOLE_KEY: Optional[str] = "ref_quadrupole"
+PRED_ENERGY_KEY: Optional[str] = "pred_energy"
+PRED_FORCES_KEY: Optional[str] = "pred_force"
+PRED_DIPOLE_KEY: Optional[str] = "pred_dipole"
+PRED_QUADRUPOLE_KEY: Optional[str] = "pred_quadrupole"
 
 # Units for plotting
 ENERGY_UNIT: str = "eV"
@@ -122,6 +122,9 @@ def plot_data(
     rmse: float = np.sqrt(np.mean((df[x_label] - df[y_label]) ** 2))
     r2: float = df[x_label].corr(df[y_label], method="pearson") ** 2
 
+    print(f"RMSE for {key}: {rmse:.2f} {unit}")
+    print(f"R² for {key}: {r2:.4f}")
+
     sns.set_context("talk")
     fig, ax = plt.subplots(figsize=(8, 6))
     sns.scatterplot(
@@ -129,9 +132,10 @@ def plot_data(
         x=x_label,
         y=y_label,
         hue="source" if sources is not None else None,
-        palette="viridis",
-        alpha=0.7,
+        palette="tab10" if sources is not None else None,
+        alpha=0.6,
         edgecolor=None,
+        s=20,
     )
     plt.plot(ref_data[key], ref_data[key], color="black", label="_Identity Line")
     plt.xlabel(f"{x_label} ({unit})")
@@ -145,9 +149,12 @@ def plot_data(
         verticalalignment="top",
         bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.5'),
     )
-    plt.legend(title=None, loc="upper left", fontsize="small")
-    for legend_handle in ax.get_legend().legend_handles:
-        legend_handle.set_alpha(1)
+
+    # Improve legend if available
+    if "source" in df.columns:
+        plt.legend(title=None, loc="upper left", fontsize="small")
+        for legend_handle in ax.get_legend().legend_handles:
+            legend_handle.set_alpha(1.0)
     plt.tight_layout()
     plt.savefig(filename, dpi=300)
     plt.close()
@@ -179,6 +186,12 @@ def create_dataframe(
             y_label: pred_data[key],
         }
     )
+
+    if "elements" in ref_data and len(ref_data["elements"]) == len(df):
+        df["elements"] = ref_data["elements"]
+    elif "elements" in pred_data and len(pred_data["elements"]) == len(df):
+        df["elements"] = pred_data["elements"]
+
     if sources is not None:
         assert len(ref_data[key]) % len(sources) == 0, "Number of sources does not match the number of data points"
         repetitions = len(ref_data[key]) // len(sources)

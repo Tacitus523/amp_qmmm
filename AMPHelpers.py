@@ -7,11 +7,10 @@ import torchlayers as tl
 
 import numpy as np
 
-def A(x, k: int = -1):
+def unsqueeze_dimension(x, k: int = -1):
     return x.unsqueeze(dim=k)
 
-
-def S(x, y):
+def contract_last_dimension(x, y):
     return (x * y).sum(dim=-1, keepdim=True)
 
 def envelope(R1):
@@ -83,7 +82,7 @@ def detrace(RxR):
 
 
 def build_Rx2(Rx1):
-    return detrace(A(Rx1, -1) * A(Rx1, -2))
+    return detrace(unsqueeze_dimension(Rx1, -1) * unsqueeze_dimension(Rx1, -2))
 
 
 def prepare_features_qmmm(
@@ -152,7 +151,7 @@ def prepare_features_qm(
     n_kernels: int = 20,
     device: torch.device = torch.device("cuda"),
 ):
-    distance_matrix = pdist(qm_coordinates)
+    distance_matrix = pdist(qm_coordinates) # shape: [n_molecules, mol_size, mol_size]
     # distance_matrix = cdist(qm_coordinates, qm_coordinates)
     # distance_matrix = cdist(qm_coordinates, qm_coordinates, device=device)
     # distance_matrix = torch.cdist(qm_coordinates, qm_coordinates)
@@ -167,7 +166,7 @@ def prepare_features_qm(
         qm_coordinates[mol_id, senders],
         qm_coordinates[mol_id, receivers],
     )
-    R1 = A(distance_matrix[mol_id, senders, receivers])
+    R1 = unsqueeze_dimension(distance_matrix[mol_id, senders, receivers]) # shape: [n_molecules, n_edges, 1]
     Rx1 = (coords_2 - coords_1) / R1  # Normalized Directional Vector
     Rx2 = build_Rx2(Rx1)
     edges, envelope = build_sin_kernel(R1, cutoff, n_kernels=n_kernels, device=device)
@@ -268,7 +267,7 @@ def build_graph(
     graph["edges_qmmm"] = edges_qmmm
     graph["receivers_qmmm"] = receivers_qmmm
     graph["receivers_esp"] = receivers_esp
-    graph["R1"], graph["Rx1"], graph["Rx2"] = R1, A(Rx1, 1), A(Rx2, 1)
+    graph["R1"], graph["Rx1"], graph["Rx2"] = R1, unsqueeze_dimension(Rx1, 1), unsqueeze_dimension(Rx2, 1)
     graph["R1_qmmm"], graph["Rx1_qmmm"], graph["Rx2_qmmm"] = R1_qmmm, Rx1_qmmm, Rx2_qmmm
     graph["R1_esp"], graph["Rx1_esp"], graph["Rx2_esp"] = R1_esp, Rx1_esp, Rx2_esp
     graph["batch_size"] = torch.tensor([n_molecules], device=device)

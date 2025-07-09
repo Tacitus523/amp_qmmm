@@ -1,4 +1,4 @@
-from AMPHelpers import S, A, build_graph, build_Rx2, ff_module
+from AMPHelpers import contract_last_dimension, unsqueeze_dimension, build_graph, build_Rx2, ff_module
 
 import torch
 import torch.nn as nn
@@ -119,7 +119,7 @@ class AMPQMMM(nn.Module):
         graph['b_coefficients_esp'] = self.B_coefficients_esp(QMMM_edge_features) * graph['envelope_qmmm']       
         coefficients = graph['b_coefficients_esp'] * graph['field']
         graph['dipos_qmmm'] = graph['alphas_esp'][..., 0:1] * scatter(coefficients[..., 0:1] * graph['Rx1_qmmm'], graph['receivers_qmmm'], dim=0)    
-        graph['quads_qmmm'] = A(graph['alphas_esp'][..., 1:2]) * scatter(A(coefficients[..., 1:2]) * graph['Rx2_qmmm'], graph['receivers_qmmm'], dim=0)
+        graph['quads_qmmm'] = unsqueeze_dimension(graph['alphas_esp'][..., 1:2]) * scatter(unsqueeze_dimension(coefficients[..., 1:2]) * graph['Rx2_qmmm'], graph['receivers_qmmm'], dim=0)
         features_ij = torch.cat((graph['nodes'][graph['receivers']], graph['nodes'][graph['senders']]), dim=-1)
         QM_coefficients = self.QM_coefficients(torch.cat((features_ij, graph['edge_features']), dim=-1))
         graph = build_poles(graph, QM_coefficients)  
@@ -150,9 +150,9 @@ class AMPQMMM(nn.Module):
         graph['field'] = graph['mm_monos_qmmm'] / torch.square(graph['R1_qmmm'])
         coefficients = graph['b_coefficients'] * graph['field']
         graph['dipos_qmmm'] = graph['alphas'][..., 0:1] * scatter(coefficients[..., 0:1] * graph['Rx1_qmmm'], graph['receivers_qmmm'], dim=0)    
-        graph['quads_qmmm'] = A(graph['alphas'][..., 1:2]) * scatter(A(coefficients[..., 1:2]) * graph['Rx2_qmmm'], graph['receivers_qmmm'], dim=0)
-        graph['dipos'] = graph['dipos'] + A(graph['dipos_qmmm'], 1)
-        graph['quads'] = graph['quads'] + A(graph['quads_qmmm'], 1)
+        graph['quads_qmmm'] = unsqueeze_dimension(graph['alphas'][..., 1:2]) * scatter(unsqueeze_dimension(coefficients[..., 1:2]) * graph['Rx2_qmmm'], graph['receivers_qmmm'], dim=0)
+        graph['dipos'] = graph['dipos'] + unsqueeze_dimension(graph['dipos_qmmm'], 1)
+        graph['quads'] = graph['quads'] + unsqueeze_dimension(graph['quads_qmmm'], 1)
         return graph        
     
     def _molecular_dipole(self, graph: Dict[str, torch.Tensor]):
@@ -164,7 +164,7 @@ class AMPQMMM(nn.Module):
     def _molecular_quadrupole(self, graph: Dict[str, torch.Tensor]):
         qm_coords = graph["qm_coordinates"] - compute_com(graph["qm_coordinates"], self.element_masses[graph["Z"]])
         contribution_quadrupoles = graph['quads'].reshape((qm_coords.shape[0], qm_coords.shape[1], 3, 3))
-        monos = A(A(graph['monos'].reshape(qm_coords.shape[:2])))
+        monos = unsqueeze_dimension(unsqueeze_dimension(graph['monos'].reshape(qm_coords.shape[:2])))
         Rx2 = build_Rx2(qm_coords - torch.mean(qm_coords, dim=1, keepdim=True))
         contribution_monopoles = (monos * Rx2)
         return (contribution_quadrupoles + contribution_monopoles).sum(dim=1)
@@ -176,22 +176,22 @@ def compute_com(coords, masses):
 
 def build_poles(graph: Dict[str, torch.Tensor], coefficients):
     coefficients = (coefficients * graph['envelope_qm']).tensor_split(3, dim=-1)
-    graph['monos'] = scatter(A(coefficients[0]), graph['receivers'], dim=0)
-    graph['dipos'] = scatter(A(coefficients[1]) * graph['Rx1'], graph['receivers'], dim=0)
-    graph['quads'] = scatter(A(A(coefficients[2])) * graph['Rx2'], graph['receivers'], dim=0)
+    graph['monos'] = scatter(unsqueeze_dimension(coefficients[0]), graph['receivers'], dim=0)
+    graph['dipos'] = scatter(unsqueeze_dimension(coefficients[1]) * graph['Rx1'], graph['receivers'], dim=0)
+    graph['quads'] = scatter(unsqueeze_dimension(unsqueeze_dimension(coefficients[2])) * graph['Rx2'], graph['receivers'], dim=0)
     return graph
 
 def add_QMMM_polarization(graph: Dict[str, torch.Tensor], QMMM_coefficients):
     coefficients = (QMMM_coefficients * graph['envelope_qmmm']).tensor_split(2, dim=-1)
-    dipos_qmmm = scatter(A(coefficients[0]) * graph['Rx1_qmmm'], graph['receivers_qmmm'], dim=0)    
-    quads_qmmm = scatter(A(A(coefficients[1])) * graph['Rx2_qmmm'], graph['receivers_qmmm'], dim=0)
+    dipos_qmmm = scatter(unsqueeze_dimension(coefficients[0]) * graph['Rx1_qmmm'], graph['receivers_qmmm'], dim=0)    
+    quads_qmmm = scatter(unsqueeze_dimension(unsqueeze_dimension(coefficients[1])) * graph['Rx2_qmmm'], graph['receivers_qmmm'], dim=0)
     graph['dipos'] = graph['dipos'] + dipos_qmmm
     graph['quads'] = graph['quads'] + quads_qmmm        
     return graph
 
 def build_multi_feature(graph: Dict[str, torch.Tensor]):  
     d_norm = torch.norm(graph['dipos'], dim=-1, keepdim=True)
-    q_norm = A(torch.norm(graph['quads'], dim=[-1, -2]))
+    q_norm = unsqueeze_dimension(torch.norm(graph['quads'], dim=[-1, -2]))
     return torch.cat((graph['monos'], d_norm, q_norm), dim=-1).reshape([d_norm.shape[0], -1])   
 
 def neutralize_charges(atomic_charges, graph: Dict[str, torch.Tensor]):
@@ -204,21 +204,21 @@ def G_matrices_2(graph: Dict[str, torch.Tensor]):
     monos_1, monos_2 = graph['monos'][graph['senders']], graph['monos'][graph['receivers']]
     dipos_1, dipos_2 = graph['dipos'][graph['senders']], graph['dipos'][graph['receivers']]
     quads_1, quads_2 = graph['quads'][graph['senders']], graph['quads'][graph['receivers']]
-    D1_Rx1, D2_Rx1 = S(dipos_1, graph['Rx1']), S(dipos_2, graph['Rx1'])
+    D1_Rx1, D2_Rx1 = contract_last_dimension(dipos_1, graph['Rx1']), contract_last_dimension(dipos_2, graph['Rx1'])
     dipo_mono = D1_Rx1 * monos_2 
     mono_dipo = -D2_Rx1 * monos_1
-    dipo_dipo = S(dipos_1, dipos_2) 
+    dipo_dipo = contract_last_dimension(dipos_1, dipos_2) 
     dipo_R = -D1_Rx1 * D2_Rx1
     Q1_Rx1 = torch.einsum('bmjk, bmk -> bmj', quads_1, graph['Rx1']) 
     Q2_Rx1 = torch.einsum('bmjk, bmk -> bmj', quads_2, graph['Rx1'])
-    Q1_Rx2 = A(torch.einsum('bmjk, bmjk -> bm', quads_1, graph['Rx2'])) 
-    Q2_Rx2 = A(torch.einsum('bmjk, bmjk -> bm', quads_2, graph['Rx2']))
-    quad_dipo = 2 * S(Q1_Rx1, dipos_2)
-    dipo_quad = -2 * S(Q2_Rx1, dipos_1)
+    Q1_Rx2 = unsqueeze_dimension(torch.einsum('bmjk, bmjk -> bm', quads_1, graph['Rx2'])) 
+    Q2_Rx2 = unsqueeze_dimension(torch.einsum('bmjk, bmjk -> bm', quads_2, graph['Rx2']))
+    quad_dipo = 2 * contract_last_dimension(Q1_Rx1, dipos_2)
+    dipo_quad = -2 * contract_last_dimension(Q2_Rx1, dipos_1)
     quad_mono = Q1_Rx2 * monos_2
     mono_quad = Q2_Rx2 * monos_1
-    quad_quad = 2 * A(torch.einsum('bmjk, bmjk -> bm', quads_1, quads_2)) 
-    quad_R = -4 * S(Q1_Rx1, Q2_Rx1)
+    quad_quad = 2 * unsqueeze_dimension(torch.einsum('bmjk, bmjk -> bm', quads_1, quads_2)) 
+    quad_R = -4 * contract_last_dimension(Q1_Rx1, Q2_Rx1)
     quad_dipo_Rx2 = -Q1_Rx2 * D2_Rx1
     dipo_quad_Rx2 = Q2_Rx2 * D1_Rx1  
     return torch.cat((monos_1, monos_2, monos_1 * monos_2, dipo_mono, mono_dipo, dipo_dipo, D1_Rx1, D2_Rx1, dipo_R, #remove mono-x terms?
@@ -232,9 +232,9 @@ def G_matrices_ESP(graph: Dict[str, torch.Tensor]):
     qm_dipos = graph['dipos'][graph['receivers_esp']]
     qm_quads = graph['quads'][graph['receivers_esp']]
     mm_monos = graph['mm_monos_esp']
-    D1_Rx1 = S(qm_dipos, Rx1)
+    D1_Rx1 = contract_last_dimension(qm_dipos, Rx1)
     Q1_Rx1 = torch.einsum('ijk, ik -> ij', qm_quads, Rx1)
-    Q1_Rx2 = A(torch.einsum('ijk, ijk -> i', qm_quads, Rx2))
+    Q1_Rx2 = unsqueeze_dimension(torch.einsum('ijk, ijk -> i', qm_quads, Rx2))
     G0 = qm_monos * mm_monos
     G1 = D1_Rx1 * mm_monos 
     G2 = Q1_Rx2 * mm_monos   
@@ -260,8 +260,8 @@ def G_matrices_2_QMMM_CHARGE(graph: Dict[str, torch.Tensor]):
     qm_dipos = graph['dipos'][graph['receivers_qmmm']]
     qm_quads = graph['quads'][graph['receivers_qmmm']]
     mm_monos = torch.ones_like(qm_dipos[..., 0:1])
-    D1_Rx1 = S(qm_dipos, A(graph['Rx1_qmmm'], 1))
-    Q1_Rx2 = A(torch.einsum('bmjk, bmjk -> bm', qm_quads, A(graph['Rx2_qmmm'], 1)))
+    D1_Rx1 = contract_last_dimension(qm_dipos, unsqueeze_dimension(graph['Rx1_qmmm'], 1))
+    Q1_Rx2 = unsqueeze_dimension(torch.einsum('bmjk, bmjk -> bm', qm_quads, unsqueeze_dimension(graph['Rx2_qmmm'], 1)))
     return torch.cat((D1_Rx1, Q1_Rx2), dim=-1) 
 
 def QMMM_G_matrices(graph: Dict[str, torch.Tensor]):
