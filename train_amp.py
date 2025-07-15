@@ -323,7 +323,7 @@ if __name__ == "__main__":
         validation_loader = DataLoader(validation_data, batch_size=1, shuffle=False, drop_last=True, collate_fn=collate_function)
 
     print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    PARAMETERS["experiment_name"] = f"{PARAMETERS['model_name']}_{PARAMETERS['time']}"
+    PARAMETERS["experiment_name"] = f"{PARAMETERS['model_name']}_{os.path.basename(PARAMETERS['data_path'])}_{PARAMETERS['time']}"
     PARAMETERS["summary_path"] = os.path.abspath(os.path.join("summaries", PARAMETERS["experiment_name"]))
     PARAMETERS["save_path"] = os.path.abspath(os.path.join("results", PARAMETERS["experiment_name"]))
     log_general_stats(PARAMETERS["model_name"], PARAMETERS["experiment_name"], PARAMETERS["mol_charge"], PARAMETERS["random_seed"])
