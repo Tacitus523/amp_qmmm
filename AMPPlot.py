@@ -122,7 +122,7 @@ def plot_data(
     rmse: float = np.sqrt(np.mean((df[x_label] - df[y_label]) ** 2))
     r2: float = df[x_label].corr(df[y_label], method="pearson") ** 2
 
-    print(f"RMSE for {key}: {rmse:.2f} {unit}")
+    print(f"RMSE for {key}: {rmse:.4f} {unit}")
     print(f"R² for {key}: {r2:.4f}")
 
     sns.set_context("talk")
