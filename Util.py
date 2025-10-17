@@ -666,7 +666,7 @@ def write_extxyz(
         coordinates: torch.Tensor, 
         molecule_properties: Dict[str, torch.Tensor] = None, 
         atom_properties: Dict[str, torch.Tensor] = None, 
-        filename: str ="geoms_amp_qmmm.extxyz"
+        filename: str ="model_geoms.extxyz"
     ):
     """
     Write an .extxyz file with atomic numbers, coordinates, and additional properties.
