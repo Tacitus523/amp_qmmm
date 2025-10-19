@@ -58,7 +58,8 @@ def parse_args() -> argparse.Namespace:
         default=DATA_SOURCES_FILE,
         help="Path to the data sources file, default: %s" % DATA_SOURCES_FILE,
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return args
 
 def extract_data(
     mols: List[Atoms],
@@ -145,7 +146,7 @@ def create_metrics_collection(
         if f_norm > 0:
             metrics["rel_mae_f"] = np.mean(np.abs(delta_f)) / (np.mean(np.abs(ref_data["forces"])) + 1e-8) * 100
             metrics["rel_rmse_f"] = np.sqrt(np.mean(delta_f**2)) / (np.sqrt(np.mean(ref_data["forces"]**2)) + 1e-8) * 100
-    
+
     # Charges metrics
     if "charges" in ref_data and "charges" in pred_data:
         delta_q = ref_data["charges"] - pred_data["charges"]
@@ -158,12 +159,12 @@ def create_metrics_collection(
     metrics_collection["test"] = metrics
     
     # Save metrics to JSON file
-    with open("evaluation_metrics.json", "w") as f:
+    output_metrics_file = "evaluation_metrics.json"
+    with open(output_metrics_file, "w") as f:
         json.dump(metrics_collection, f, indent=2)
-    print(f"\nMetrics saved to: mace_evaluation_metrics.json")
+    print(f"\nMetrics saved to: {output_metrics_file}\n")
 
     return metrics_collection
-
 
 def plot_data(
     ref_data: Dict[str, np.ndarray],
@@ -182,9 +183,10 @@ def plot_data(
         ref_data: Dictionary containing reference data
         pred_data: Dictionary containing predicted data
         key: Key to extract the specific data from dictionaries
-        sources: Data sources
+        sources: Optional data sources for coloring
         x_label: Label for x-axis
         y_label: Label for y-axis
+        unit: Unit for the data
         filename: Output filename for the plot
     """
     df: pd.DataFrame = create_dataframe(ref_data, pred_data, key, sources, x_label, y_label)
@@ -269,29 +271,30 @@ def create_dataframe(
 
 def main() -> None:
     args: argparse.Namespace = parse_args()
-    mols: List[Atoms] = read(args.geoms, format="extxyz", index=":")
+    molecules: List[Atoms] = read(args.geoms, format="extxyz", index=":")
     ref_data: Dict[str, np.ndarray] = extract_data(
-        mols, REF_ENERGY_KEY, REF_FORCES_KEY, REF_DIPOLE_KEY, REF_QUADRUPOLE_KEY
+        molecules, REF_ENERGY_KEY, REF_FORCES_KEY, REF_DIPOLE_KEY, REF_QUADRUPOLE_KEY
     )
     model_data: Dict[str, np.ndarray] = extract_data(
-        mols, PRED_ENERGY_KEY, PRED_FORCES_KEY, PRED_DIPOLE_KEY, PRED_QUADRUPOLE_KEY
+        molecules, PRED_ENERGY_KEY, PRED_FORCES_KEY, PRED_DIPOLE_KEY, PRED_QUADRUPOLE_KEY
     )
-    assert len(ref_data["energy"]) == len(mols), "Number of reference data does not match the number of configurations"
-    assert len(model_data["energy"]) == len(mols), "Number of model data does not match the number of configurations"
+    assert len(ref_data["energy"]) == len(molecules), "Number of reference data does not match the number of configurations"
+    assert len(model_data["energy"]) == len(molecules), "Number of model data does not match the number of configurations"
 
     if args.sources is not None:
         with open(args.sources, "r") as f:
             sources: np.ndarray = np.array([line.strip() for line in f.readlines()])
-        assert len(sources) == len(mols), f"Number of sources does not match the number of configurations: {len(sources)} != {len(mols)}"
+        assert len(sources) == len(molecules), f"Number of sources does not match the number of configurations: {len(sources)} != {len(molecules)}"
     else:
         sources = None
 
     for name, data in zip(["Ref", "Model"], [ref_data, model_data]):
         for key, value in data.items():
             # Skip non-numeric data
-            if value.dtype not in (np.float32, np.float64, np.int32, np.int64):
-                continue
-            print(f"{name} {key}: {value.shape} Min Max: {np.min(value): .1f} {np.max(value): .1f}")
+            if isinstance(value, np.ndarray) and value.dtype in (np.float32, np.float64, np.int32, np.int64):
+                print(f"{name} {key}: {value.shape} Min Max: {np.min(value): .1f} {np.max(value): .1f}")
+
+    metrics_collection = create_metrics_collection(ref_data, model_data)
 
     plot_data(
         ref_data,
