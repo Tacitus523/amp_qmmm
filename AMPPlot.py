@@ -34,9 +34,9 @@ PRED_QUADRUPOLE_KEY: Optional[str] = "pred_quadrupole"
 
 # Units for plotting
 ENERGY_UNIT: str = "eV"
-FORCES_UNIT: str = r"$\frac{eV}{\AA}$"
-DIPOLE_UNIT: str = "eA"
-QUADRUPOLE_UNIT: str = "eA²"
+FORCES_UNIT: str = "eV/Å"
+DIPOLE_UNIT: str = "eÅ"
+QUADRUPOLE_UNIT: str = "eÅ²"
 
 # Conversion factors
 eV_to_kJ_mol: float = 96.485
