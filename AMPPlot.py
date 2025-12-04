@@ -10,8 +10,11 @@
 import argparse
 import json
 from typing import Dict, List, Optional, Union
+import warnings
+
 from ase.atoms import Atoms
 from ase.io import read
+from ase.data import atomic_numbers
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -41,6 +44,17 @@ QUADRUPOLE_UNIT: str = "eÅ²"
 # Conversion factors
 eV_to_kJ_mol: float = 96.485
 kJ_mol_to_eV: float = 1 / eV_to_kJ_mol
+
+DPI = 100
+PALETTE = sns.color_palette("tab10")
+PALETTE.pop(3)  # Remove red color
+
+# Silence seaborn UserWarning about palette length
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    message=r"The palette list has more values .* than needed .*",
+)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Plotting script for model data")
@@ -198,12 +212,17 @@ def plot_data(
 
     sns.set_context("talk")
     fig, ax = plt.subplots(figsize=(8, 6))
+    hue = None
+    if "Source" in df.columns:
+        hue = "Source"
+    elif "Element" in df.columns:
+        hue = "Element"
     sns.scatterplot(
         data=df,
         x=x_label,
         y=y_label,
-        hue="source" if sources is not None else None,
-        palette="tab10" if sources is not None else None,
+        hue=hue,
+        palette=PALETTE if hue is not None else None,
         alpha=0.6,
         edgecolor=None,
         s=20,
@@ -222,12 +241,12 @@ def plot_data(
     )
 
     # Improve legend if available
-    if "source" in df.columns:
+    if ax.get_legend() is not None:
         plt.legend(title=None, loc="upper left", fontsize="small")
         for legend_handle in ax.get_legend().legend_handles:
             legend_handle.set_alpha(1.0)
     plt.tight_layout()
-    plt.savefig(filename, dpi=300)
+    plt.savefig(filename, dpi=DPI)
     plt.close()
 
 def create_dataframe(
@@ -258,15 +277,33 @@ def create_dataframe(
         }
     )
 
-    if "elements" in ref_data and len(ref_data["elements"]) == len(df):
-        df["elements"] = ref_data["elements"]
-    elif "elements" in pred_data and len(pred_data["elements"]) == len(df):
-        df["elements"] = pred_data["elements"]
+    if "elements" in ref_data and len(df) >= len(ref_data["elements"]):
+        unique_elements = np.unique(ref_data["elements"])
+        element_order = sorted(unique_elements, key=lambda el: atomic_numbers[el])
+        repetitions = len(df) // len(ref_data["elements"])
+        df["Element"] = pd.Categorical(
+            np.repeat(ref_data["elements"], repetitions), 
+            ordered=True, 
+            categories=element_order
+        )
+    elif "elements" in pred_data and len(df) >= len(pred_data["elements"]):
+        unique_elements = np.unique(pred_data["elements"])
+        element_order = sorted(unique_elements, key=lambda el: atomic_numbers[el])
+        repetitions = len(df) // len(pred_data["elements"])
+        df["Element"] = pd.Categorical(
+            np.repeat(pred_data["elements"], repetitions), 
+            ordered=True, 
+            categories=element_order
+        )
 
     if sources is not None:
         assert len(ref_data[key]) % len(sources) == 0, "Number of sources does not match the number of data points"
         repetitions = len(ref_data[key]) // len(sources)
-        df["source"] = np.repeat(sources, repetitions)
+        df["Source"] = pd.Categorical(
+            np.repeat(sources, repetitions),
+            ordered=True,
+            categories=np.unique(sources),
+        )
     return df
 
 def main() -> None:
@@ -311,7 +348,7 @@ def main() -> None:
         ref_data,
         model_data,
         "forces",
-        sources if sources is not None else ref_data["elements"],
+        sources,
         "Ref Forces",
         "Model Forces",
         FORCES_UNIT,
