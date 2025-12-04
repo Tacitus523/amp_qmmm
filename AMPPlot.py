@@ -361,8 +361,8 @@ def main() -> None:
             model_data,
             "dipole",
             sources,
-            "Ref dipole",
-            "Model dipole",
+            "Ref Dipole",
+            "Model Dipole",
             DIPOLE_UNIT,
             "model_dipole.png",
         )
@@ -373,8 +373,8 @@ def main() -> None:
             model_data,
             "quadrupole",
             sources,
-            "Ref quadrupole",
-            "Model quadrupole",
+            "Ref Quadrupole",
+            "Model Quadrupole",
             QUADRUPOLE_UNIT,
             "model_quadrupole.png",
         )
