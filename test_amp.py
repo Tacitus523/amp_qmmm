@@ -194,7 +194,7 @@ if __name__ == "__main__":
         if stage != "test":
             maes, evaluation_time = evaluate_on_dataset(model, stage, dataloader, PARAMETERS, write_results=None)
         else:
-            maes, evaluation_time = evaluate_on_dataset(model, stage, dataloader, PARAMETERS, write_results=os.path.join(args.results_folder, "amp_qmmm_geoms.extxyz"))
+            maes, evaluation_time = evaluate_on_dataset(model, stage, dataloader, PARAMETERS, write_results=os.path.join(args.results_folder, "model_geoms.extxyz"))
         log_stats(stage, maes, evaluation_time)
         print("--------------------------------------------------------------------------------")
 
